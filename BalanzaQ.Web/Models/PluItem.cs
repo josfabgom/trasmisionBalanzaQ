@@ -11,6 +11,13 @@ public class PluItem
     public decimal Price { get; set; }
     public int LabelFormat { get; set; }
     public string ItemType { get; set; } = "P"; // P=Pesable, N=Unidad
+    public int RawType { get; set; } // 1 for Weighted, other for Unit
+
+    // Nueva trazabilidad por artículo
+    public string? LastSyncStatus { get; set; }
+    public string? LastSyncError { get; set; }
+    public DateTime? LastSyncDate { get; set; }
+
     public int ShelfLife { get; set; }
     public bool IsSyncronized { get; set; } = false;
 }

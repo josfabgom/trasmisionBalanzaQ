@@ -72,83 +72,158 @@ public class DigiService
             byte[] afterName = new byte[templateBytes.Length - (numNameStart + 3 + nameLen)];
             Array.Copy(templateBytes, numNameStart + 3 + nameLen, afterName, 0, afterName.Length);
 
-            // 2. Construir payload
-            var paylList = new List<byte>();
-            foreach (var item in items)
+            // 2. Construir payload en LOTES para evitar límite de buffer de 64KB en la balanza
+            int batchSize = 100;
+            StringBuilder finalHexAll = new StringBuilder();
+
+            for (int chunkStart = 0; chunkStart < items.Count; chunkStart += batchSize)
             {
-                byte[] curBefore = new byte[beforeName.Length];
-                Array.Copy(beforeName, curBefore, beforeName.Length);
+                var batchItems = items.Skip(chunkStart).Take(batchSize).ToList();
+                var paylList = new List<byte>();
 
-                // PLU BCD (Bytes 0-3)
-                int pluCode = item.PluCode;
-                byte[] pluBcd = IntToBcdArray(pluCode, 4);
-                Array.Copy(pluBcd, 0, curBefore, 0, 4);
-
-                // PRECIO BCD (Bytes 11-14)
-                // Se observó que el BCD esperado de 28376.00 es 00 28 37 60 (283760), es decir, por 10.
-                int priceScaled = (int)Math.Round(item.Price * 10);
-                byte[] priceBcd = IntToBcdArray(priceScaled, 4);
-                Array.Copy(priceBcd, 0, curBefore, 11, 4);
-
-                // Nombre (DIGI SM suele tener un límite estricto de ~25 dependiendo de la asignación)
-                string nameToUse = string.IsNullOrWhiteSpace(item.ShortName) ? item.Name : item.ShortName;
-                string nameTruncated = nameToUse.Length > 25 ? nameToUse.Substring(0, 25) : nameToUse;
-                byte[] nameBytes = Encoding.ASCII.GetBytes(nameTruncated);
-
-                // Forzamos el Byte 5 a '43' (0x43) si era 0, o lo dejamos en 41 dependiendo de algún flag si fuera necesario,
-                // Pero por ahora igualamos a lo que el usuario espera según el item (PLU 36 = 43, 231 = 41).
-                // Podría tener que ver con si es Group=1 (carniceria) vs Group=11 (quesos). Para igualarlo lo dejaremos en 0x43 si el grupo es 1.
-                if (item.Group == 1)
+                foreach (var item in batchItems)
                 {
-                    curBefore[5] = 0x43;
+                    byte[] curBefore = new byte[beforeName.Length];
+                    Array.Copy(beforeName, curBefore, beforeName.Length);
+
+                    // PLU BCD (Bytes 0-3)
+                    int pluCode = item.PluCode;
+                    Console.WriteLine($"Procesando PLU {pluCode}: ItemType='{item.ItemType}'");
+                    byte[] pluBcd = IntToBcdArray(pluCode, 4);
+                    Array.Copy(pluBcd, 0, curBefore, 0, 4);
+
+                    // CONTROL BYTE (Byte 5): 3D para Pesado (P), 41 para Unitario (N)
+                    bool isPesable = item.ItemType == "P" || item.RawType == 1;
+                    curBefore[5] = isPesable ? (byte)0x3D : (byte)0x41;
+                    Console.WriteLine($"PLU {pluCode}: ItemType='{item.ItemType}', RawType={item.RawType}, isPesable={isPesable} => Byte 5={curBefore[5]:X2}");
+
+                    // BYTE 16: 09 para Pesado (P), 05 para Unitario (N)
+                    curBefore[16] = isPesable ? (byte)0x09 : (byte)0x05;
+
+                    // PRECIO BCD (Bytes 11-14)
+                    int priceScaled = (int)Math.Round(item.Price * 10);
+                    byte[] priceBcd = IntToBcdArray(priceScaled, 4);
+                    Array.Copy(priceBcd, 0, curBefore, 11, 4);
+
+                    // ITEM CODE (Bytes 19-23)
+                    string strCode = item.PluCode.ToString();
+                    if (strCode.Length % 2 == 0) strCode = "0" + strCode;
+                    strCode = strCode.PadRight(10, '1');
+                    byte[] codeBcd = new byte[5];
+                    for (int i = 0; i < 5; i++) codeBcd[i] = Convert.ToByte(strCode.Substring(i * 2, 2), 16);
+                    Array.Copy(codeBcd, 0, curBefore, 19, 5);
+
+                    // SECCIÓN / FORMATO (Bytes 24-25 y 26-27)
+                    // Según forense: 36 (Sec 45) -> 00 45. 231 (Sec 14?) -> 00 14.
+                    // Se trata como BCD simple del número de sección/label format
+                    byte[] sectionBcd = IntToBcdArray(item.Section, 2);
+                    Array.Copy(sectionBcd, 0, curBefore, 24, 2);
+                    Array.Copy(sectionBcd, 0, curBefore, 26, 2);
+
+                    // Nombre
+                    string nameToUse = string.IsNullOrWhiteSpace(item.ShortName) ? item.Name : item.ShortName;
+                    string nameTruncated = nameToUse.Length > 25 ? nameToUse.Substring(0, 25) : nameToUse;
+                    byte[] nameBytes = Encoding.ASCII.GetBytes(nameTruncated);
+
+                    curBefore[curBefore.Length - 1] = (byte)nameBytes.Length;
+
+                    paylList.AddRange(curBefore);
+                    paylList.AddRange(nameBytes);
+                    paylList.AddRange(afterName);
                 }
-                else
+
+                string finalHex = Convert.ToHexString(paylList.ToArray());
+                finalHexAll.Append(finalHex);
+
+                if (!enviarABalanza)
                 {
-                    curBefore[5] = 0x41;
+                    // Solo guardamos un consolidado local y salimos (para modo demo/archivoDAT)
+                    string dDebugFile = Path.Combine(_baseDir, $"SM{balanza.IpAddress}F37_DEBUG.DAT");
+                    File.WriteAllText(dDebugFile, finalHexAll.ToString(), Encoding.ASCII);
+                    continue; // Skip balanza transmit if requested
                 }
 
-                // ITEM CODE (Bytes 19-23)
-                // DIGI commonly expects item code to be BCD padded with Fs (or 1s in some configs) up to 10 digits
-                // Si PluCode es par (ej 36), parece llevar cero a la izquierda para hacerlo impar según el archivo esperado (03611...)
-                string strCode = item.PluCode.ToString();
-                if (strCode.Length % 2 == 0) strCode = "0" + strCode;
-                strCode = strCode.PadRight(10, '1'); // Pad with 1s to 10 chars
-                byte[] codeBcd = new byte[5];
-                for (int i = 0; i < 5; i++) codeBcd[i] = Convert.ToByte(strCode.Substring(i * 2, 2), 16);
-                Array.Copy(codeBcd, 0, curBefore, 19, 5);
-                
-                // SHELF LIFE (Bytes 24-25 and 26-27)
-                byte[] shelfBcd = IntToBcdArray(item.ShelfLife, 2);
-                Array.Copy(shelfBcd, 0, curBefore, 24, 2); // Sell By
-                Array.Copy(shelfBcd, 0, curBefore, 26, 2); // Used By
+                // 3. Escribir archivo F37 del Lote en directorio local
+                string destFileName = $"SM{balanza.IpAddress}F37.DAT";
+                string datFileRoot = Path.Combine(_baseDir, destFileName);
+                string datFileDigi = Path.Combine(digiFolder, destFileName);
 
-                // Len
-                curBefore[curBefore.Length - 1] = (byte)nameBytes.Length;
+                File.WriteAllText(datFileRoot, finalHex, Encoding.ASCII);
+                File.WriteAllText(datFileDigi, finalHex, Encoding.ASCII);
 
-                paylList.AddRange(curBefore);
-                paylList.AddRange(nameBytes);
-                paylList.AddRange(afterName);
+                // 4. Invocar digiwtcp.exe para escribir
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = digiExe,
+                    Arguments = $"WR 37 {balanza.IpAddress}",
+                    WorkingDirectory = digiFolder,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true
+                };
+
+                using var process = Process.Start(psi);
+                await process!.WaitForExitAsync();
+
+                // Validar RESULT
+                string resultPath = Path.Combine(digiFolder, "RESULT");
+                bool success = false;
+                string resCode = "ERROR_RESULT_MISSING";
+
+                if (File.Exists(resultPath))
+                {
+                    resCode = File.ReadAllText(resultPath).Trim();
+                    success = (resCode == "0");
+                }
+
+                // ACTUALIZAR ESTADO DE CADA ITEM DEL LOTE
+                foreach(var item in batchItems)
+                {
+                    item.LastSyncDate = DateTime.Now;
+                    if (success)
+                    {
+                        item.LastSyncStatus = "Sincronizado";
+                        item.LastSyncError = null;
+                        item.IsSyncronized = true;
+                    }
+                    else
+                    {
+                        item.LastSyncStatus = "Error";
+                        item.LastSyncError = resCode;
+                        item.IsSyncronized = false;
+                    }
+                }
+
+                if (!success)
+                {
+                    return ($"Error de balanza en lote {chunkStart}: Código {resCode}", finalHexAll.ToString());
+                }
             }
 
-            // 3. Escribir archivo F37 en directorio local
-            string destFileName = $"SM{balanza.IpAddress}F37.DAT";
-            string datFileRoot = Path.Combine(_baseDir, destFileName);
-            string datFileDigi = Path.Combine(digiFolder, destFileName);
+            if (!enviarABalanza) return ("Generado, no enviado.", finalHexAll.ToString());
 
-            string finalHex = Convert.ToHexString(paylList.ToArray());
-            File.WriteAllText(datFileRoot, finalHex, Encoding.ASCII);
-            File.WriteAllText(datFileDigi, finalHex, Encoding.ASCII); // Copia en Digi carpeta donde vive EXE
+            return ("Exito", finalHexAll.ToString());
+        }
+        catch (Exception ex)
+        {
+            return ($"EXCEPTION: {ex.Message}", "");
+        }
+    }
 
-            if (!enviarABalanza)
-            {
-                return ("Generado, no enviado.", finalHex);
-            }
+    public async Task<string> ExecuteMaintenanceCommandAsync(Balanza balanza, string command, int fileId)
+    {
+        try
+        {
+            string digiFolder = Path.Combine(_baseDir, "Digi");
+            string digiExe = Path.Combine(digiFolder, "digiwtcp.exe");
 
-            // 4. Invocar digiwtcp.exe para escribir
+            if (!File.Exists(digiExe)) return "ERROR: digiwtcp.exe no encontrado.";
+
+            // Comando: RD=Lectura, DELFI=Borrado Integral
             ProcessStartInfo psi = new ProcessStartInfo
             {
                 FileName = digiExe,
-                Arguments = $"WR 37 {balanza.IpAddress}",
+                Arguments = $"{command} {fileId} {balanza.IpAddress}",
                 WorkingDirectory = digiFolder,
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -158,20 +233,32 @@ public class DigiService
             using var process = Process.Start(psi);
             await process!.WaitForExitAsync();
 
-            // Check RESULT
             string resultPath = Path.Combine(digiFolder, "RESULT");
             if (File.Exists(resultPath))
             {
                 string resCode = File.ReadAllText(resultPath).Trim();
-                if(resCode == "0") return ("Exito", finalHex);
-                return ($"Error de balanza: Código {resCode}", finalHex);
+                if (resCode == "0")
+                {
+                    if (command == "RD")
+                    {
+                        string sourceFile = Path.Combine(digiFolder, $"SM{balanza.IpAddress}F{fileId}.DAT");
+                        if (File.Exists(sourceFile))
+                        {
+                            // Copiar a la raíz para fácil acceso
+                            string destFile = Path.Combine(_baseDir, $"SM{balanza.IpAddress}F{fileId}_READ.DAT");
+                            File.Copy(sourceFile, destFile, true);
+                            return $"Éxito: Datos leídos y guardados en {Path.GetFileName(destFile)}";
+                        }
+                    }
+                    return "Éxito: Operación completada.";
+                }
+                return $"Error de balanza: Código {resCode}";
             }
-
-            return ("Enviado, sin archivo de resultado.", finalHex);
+            return "Error: No se recibió respuesta de digiwtcp.";
         }
         catch (Exception ex)
         {
-            return ($"EXCEPTION: {ex.Message}", "");
+            return $"EXCEPTION: {ex.Message}";
         }
     }
 

@@ -45,6 +45,9 @@
                         }
                     </label>
                     <InputFile id="fileInput" OnChange="ImportarDatos" accept=".dat,.txt,.csv" style="display: none;" disabled="@_isImporting" />
+                    <button class="btn btn-warning w-100 mt-2" @onclick="SincronizarLocal" disabled="@_isImporting">
+                        <i class="bi bi-arrow-repeat"></i> Sincronizar data.dat Local
+                    </button>
                     <a href="/articulos" class="btn btn-outline-secondary w-100 mt-2">Gestionar Artículos</a>
                 </div>
             </div>
@@ -118,6 +121,40 @@
         catch(Exception ex)
         {
             Mensaje = $"Error al importar: {ex.Message}";
+            ClaseAlerta = "alert-danger";
+        }
+        finally
+        {
+            _isImporting = false;
+        }
+    }
+
+    private async Task SincronizarLocal()
+    {
+        _isImporting = true;
+        try
+        {
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "data.dat");
+            // Fallback for portable mode
+            if (!File.Exists(path)) path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data.dat");
+            
+            if (File.Exists(path))
+            {
+                using var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
+                int importados = await ImportService.ImportarDatosAsync(fs);
+                Mensaje = $"Sincronización local exitosa. Se actualizaron {importados} artículos desde el archivo data.dat de la raíz.";
+                ClaseAlerta = "alert-success";
+                await CargarEstadisticas();
+            }
+            else
+            {
+                Mensaje = "No se encontró el archivo data.dat en la carpeta raíz para sincronización directa.";
+                ClaseAlerta = "alert-warning";
+            }
+        }
+        catch (Exception ex)
+        {
+            Mensaje = $"Error en sincronización local: {ex.Message}";
             ClaseAlerta = "alert-danger";
         }
         finally

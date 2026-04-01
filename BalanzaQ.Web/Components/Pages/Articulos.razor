@@ -5,6 +5,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject BalanzaDbContext DbContext
 @inject BalanzaQ.Web.Services.DigiService DigiService
+@inject BalanzaQ.Web.Services.ImportService ImportService
 @inject IJSRuntime JS
 
 <PageTitle>Artículos</PageTitle>
@@ -22,13 +23,23 @@
                 {
                     <i class="bi bi-broadcast"></i>
                 }
-                Transmitir Seleccionados
+                @(simulateMode ? "Simular Envío" : "Transmitir Seleccionados")
             </button>
             <button class="btn btn-outline-primary" @onclick="() => SincronizarSeleccionados(false)" disabled="@(!seleccionados.Any() || _isSyncing)">
-                <i class="bi bi-file-earmark-code"></i> Generar DAT
+                <i class="bi bi-download"></i> Descargar .DAT
             </button>
-            <div class="input-group" style="max-width:300px;">
-                <input type="text" class="form-control" placeholder="Buscar PLU o Nombre" @bind="terminoBusqueda" @bind:event="oninput" @onkeyup="FiltrarLista" />
+            <button class="btn btn-outline-secondary" @onclick="SincronizarLocal" disabled="@_isSyncing">
+                <i class="bi bi-arrow-repeat"></i> Sincronizar con data.dat
+            </button>
+            <button class="btn btn-outline-danger" @onclick="SeleccionarFallidos" disabled="@_isSyncing">
+                <i class="bi bi-exclamation-triangle"></i> Seleccionar Fallidos
+            </button>
+            <div class="form-check form-switch d-flex align-items-center ms-2" title="Omite el envío real a la balanza para evitar errores de conexión">
+                <input class="form-check-input me-1" type="checkbox" id="simMode" @bind="simulateMode">
+                <label class="form-check-label mb-0" for="simMode">Simular Envío</label>
+            </div>
+            <div class="input-group" style="max-width:250px;">
+                <input type="text" class="form-control" placeholder="Buscar..." @bind="terminoBusqueda" @bind:event="oninput" @onkeyup="FiltrarLista" />
                 <button class="btn btn-outline-secondary" type="button"><i class="bi bi-search"></i></button>
             </div>
         </div>
@@ -56,6 +67,7 @@
                     <th>Grupo/Dpto.</th>
                     <th>Sección</th>
                     <th>Días Vto.</th>
+                    <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -74,6 +86,20 @@
                         <td>@p.Section</td>
                         <td>@p.ShelfLife días</td>
                         <td>
+                            @if (p.LastSyncStatus == "Sincronizado")
+                            {
+                                <span class="badge bg-success" title="Sincronizado el @p.LastSyncDate?.ToString("g")"><i class="bi bi-check-circle"></i> OK</span>
+                            }
+                            else if (p.LastSyncStatus == "Error")
+                            {
+                                <span class="badge bg-danger" title="Error @p.LastSyncError el @p.LastSyncDate?.ToString("g")"><i class="bi bi-x-circle"></i> Error @p.LastSyncError</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary opacity-50"><i class="bi bi-dash-circle"></i> Pendiente</span>
+                            }
+                        </td>
+                        <td>
                             <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(p)">Editar PLU</button>
                         </td>
                     </tr>
@@ -85,6 +111,37 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Inspección de Trama (Opcional, se mantiene para validación de PLU) -->
+    @if (!string.IsNullOrEmpty(lastGeneratedHex))
+    {
+        <div class="card mt-4 border-primary shadow-sm mb-5">
+            <div class="card-header bg-primary text-white d-flex justify-content-between">
+                <span><i class="bi bi-code-square"></i> Inspección de Trama Generada (Hexadecimal)</span>
+                <button class="btn btn-sm btn-light" @onclick="() => lastGeneratedHex = null">Cerrar</button>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="fw-bold mb-2">Archivo .DAT generado:</label>
+                        <textarea class="form-control font-monospace" rows="5" readonly style="font-size: 0.8rem; background: #f8f9fa;">@lastGeneratedHex</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="fw-bold mb-2">Comparar con "Hex Bueno":</label>
+                        <textarea class="form-control font-monospace" rows="5" @bind="hexBueno" placeholder="Pega aquí la trama que funciona..." style="font-size: 0.8rem;"></textarea>
+                    </div>
+                </div>
+                
+                @if (!string.IsNullOrEmpty(hexBueno))
+                {
+                    <div class="mt-2 p-2 rounded small" style="background: #e9ecef;">
+                        <strong>Resultado:</strong> @(lastGeneratedHex.Equals(hexBueno?.Trim(), StringComparison.OrdinalIgnoreCase) ? "¡IDÉNTICAS!" : "Hay diferencias.")
+                        <div class="xsmall text-muted mt-1">@GetDiffSummary()</div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
 </div>
 
 @if (ShowModal)
@@ -144,12 +201,28 @@
     private List<PluItem> listaFiltrada = new();
     private string terminoBusqueda = "";
 
-    private PluItem Model = new();
-    private bool ShowModal = false;
     private string? Mensaje;
     private string ClaseAlerta = "alert-success";
     private bool _isSyncing = false;
     private HashSet<int> seleccionados = new();
+
+    private PluItem Model = new();
+    private bool ShowModal = false;
+    private bool simulateMode = false;
+    private string? lastGeneratedHex;
+    private string? hexBueno;
+
+    private string GetDiffSummary()
+    {
+        if (string.IsNullOrEmpty(lastGeneratedHex) || string.IsNullOrEmpty(hexBueno)) return "";
+        string gen = lastGeneratedHex.ToUpper();
+        string bue = hexBueno.Trim().ToUpper();
+        int minLen = Math.Min(gen.Length, bue.Length);
+        for(int i=0; i<minLen; i++) {
+            if(gen[i] != bue[i]) return $"Primera diferencia en posición {i}: '{gen[i]}' vs '{bue[i]}'. Trama cerca: {gen.Substring(Math.Max(0,i-10), Math.Min(20, gen.Length - Math.Max(0,i-10)))}";
+        }
+        return gen.Length != bue.Length ? $"Diferencia en longitud: {gen.Length} vs {bue.Length}" : "Sin diferencias visibles.";
+    }
 
     private void ToggleSeleccion(int pluCode, ChangeEventArgs e)
     {
@@ -168,6 +241,49 @@
         else
         {
             foreach (var p in listaFiltrada) seleccionados.Remove(p.PluCode);
+        }
+    }
+
+    private void SeleccionarFallidos()
+    {
+        seleccionados.Clear();
+        foreach (var p in todosArticulos.Where(x => x.LastSyncStatus == "Error"))
+        {
+            seleccionados.Add(p.PluCode);
+        }
+        FiltrarLista();
+    }
+
+    private async Task SincronizarLocal()
+    {
+        _isSyncing = true;
+        try
+        {
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "data.dat");
+            if (!File.Exists(path)) path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data.dat");
+            
+            if (File.Exists(path))
+            {
+                using var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
+                int importados = await ImportService.ImportarDatosAsync(fs);
+                Mensaje = $"Sincronización local exitosa. Se actualizaron {importados} artículos.";
+                ClaseAlerta = "alert-success";
+                await CargarDatos();
+            }
+            else
+            {
+                Mensaje = "No se encontró el archivo data.dat en la carpeta raíz.";
+                ClaseAlerta = "alert-warning";
+            }
+        }
+        catch (Exception ex)
+        {
+            Mensaje = $"Error en sincronización local: {ex.Message}";
+            ClaseAlerta = "alert-danger";
+        }
+        finally
+        {
+            _isSyncing = false;
         }
     }
 
@@ -190,28 +306,38 @@
             int exitos = 0;
             foreach (var b in balanzas)
             {
-                var res = await DigiService.SyncBalanzaAsync(b, articulosSeleccionados, enviarABalanza);
+                var res = await DigiService.SyncBalanzaAsync(b, articulosSeleccionados, enviarABalanza && !simulateMode);
                 b.LastSyncDate = DateTime.Now;
-                b.LastSyncStatus = res.Message;
+                b.LastSyncStatus = simulateMode ? "Simulado (OK)" : res.Message;
+                lastGeneratedHex = res.HexPayload;
 
-                if (res.Message.Contains("Exito") || res.Message.Contains("Generado"))
+                if (res.Message.Contains("Exito") || res.Message.Contains("Generado") || (simulateMode && !string.IsNullOrEmpty(res.HexPayload)))
                 {
                     exitos++;
-                    if (!enviarABalanza && !string.IsNullOrEmpty(res.HexPayload))
+                    if (!enviarABalanza || simulateMode)
                     {
-                        string fileName = $"SM{b.IpAddress}F37_Sel.DAT";
+                        string fileName = $"SM{b.IpAddress}F37_{(simulateMode ? "SIM" : "SEL")}.DAT";
                         await JS.InvokeVoidAsync("downloadTextFile", fileName, res.HexPayload);
                     }
                 }
             }
+
+            // PERSISTIR ESTADOS INDIVIDUALES
             await DbContext.SaveChangesAsync();
 
-            Mensaje = enviarABalanza ? $"Transmisión completada. {exitos} de {balanzas.Count} exitosas." : $"Módulos locales descargados para {balanzas.Count} balanzas.";
-            ClaseAlerta = exitos == balanzas.Count ? "alert-success" : "alert-warning";
+            if (enviarABalanza && !simulateMode)
+            {
+                Mensaje = (exitos > 0) ? $"Transmisión completada. Se enviaron artículos a {exitos} balanza(s)." : "Error en el proceso de envío.";
+            }
+            else
+            {
+                Mensaje = (exitos > 0) ? $"Archivos .DAT generados y descargados para {exitos} balanza(s)." : "Error al generar los archivos.";
+            }
+            ClaseAlerta = (exitos > 0) ? "alert-success" : "alert-danger";
         }
         catch (Exception ex)
         {
-            Mensaje = $"Error crítico en transmisión: {ex.Message}";
+            Mensaje = "Error critico: " + ex.Message;
             ClaseAlerta = "alert-danger";
         }
         finally

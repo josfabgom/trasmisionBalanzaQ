@@ -22,6 +22,17 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<BalanzaDbContext>();
     db.Database.EnsureCreated();
+    
+    // Parches manuales para añadir columnas si no existen
+    try {
+        db.Database.ExecuteSqlRaw("ALTER TABLE PluItems ADD COLUMN RawType INTEGER NOT NULL DEFAULT 0;");
+    } catch { }
+
+    try {
+        db.Database.ExecuteSqlRaw("ALTER TABLE PluItems ADD COLUMN LastSyncStatus TEXT;");
+        db.Database.ExecuteSqlRaw("ALTER TABLE PluItems ADD COLUMN LastSyncError TEXT;");
+        db.Database.ExecuteSqlRaw("ALTER TABLE PluItems ADD COLUMN LastSyncDate TEXT;");
+    } catch { }
 }
 
 // Configure the HTTP request pipeline.
