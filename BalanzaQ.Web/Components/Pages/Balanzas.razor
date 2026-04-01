@@ -1,0 +1,245 @@
+@page "/balanzas"
+@rendermode InteractiveServer
+@using BalanzaQ.Web.Models
+@using BalanzaQ.Web.Data
+@using Microsoft.EntityFrameworkCore
+@inject BalanzaDbContext DbContext
+
+<PageTitle>Balanzas</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Configuración de Balanzas Digi</h2>
+        <div>
+            <button class="btn btn-outline-info me-2" @onclick="VerificarConexionGlobal" disabled="@_isPinging">
+                @if (_isPinging)
+                {
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    <span> Comprobando redes...</span>
+                }
+                else
+                {
+                    <i class="bi bi-activity"></i> <span>Verificar Conexión</span>
+                }
+            </button>
+            <button class="btn btn-primary" @onclick="CrearNueva"><i class="bi bi-plus"></i> Nueva Balanza</button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Mensaje))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @Mensaje
+            <button type="button" class="btn-close" @onclick="() => Mensaje = null"></button>
+        </div>
+    }
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>IP</th>
+                    <th>Estado Red</th>
+                    <th>Descripción</th>
+                    <th>Activa</th>
+                    <th>Estado Sinc.</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var b in balanzas)
+                {
+                    <tr>
+                        <td>@b.Id</td>
+                        <td><strong>@b.IpAddress</strong></td>
+                        <td>
+                            @if (_pingStatus.ContainsKey(b.Id))
+                            {
+                                @if (_pingStatus[b.Id].Contains("✅"))
+                                {
+                                    <span class="badge bg-success">@_pingStatus[b.Id]</span>
+                                }
+                                else if (_pingStatus[b.Id].Contains("❌"))
+                                {
+                                    <span class="badge bg-danger">@_pingStatus[b.Id]</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">@_pingStatus[b.Id]</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="badge bg-light text-dark">❓ Desconocido</span>
+                            }
+                        </td>
+                        <td>@b.Description</td>
+                        <td>
+                            @if (b.IsEnabled)
+                            {
+                                <span class="badge bg-success">Sí</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">No</span>
+                            }
+                        </td>
+                        <td><small>@(b.LastSyncDate?.ToString("g") ?? "Nunca")</small><br />@b.LastSyncStatus</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(b)">Editar</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(b)">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (ShowModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(Model.Id == 0 ? "Nueva Balanza" : "Editar Balanza")</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label>Dirección IP</label>
+                        <input type="text" class="form-control" @bind="Model.IpAddress" placeholder="Ej: 192.168.1.100" />
+                    </div>
+                    <div class="mb-3">
+                        <label>Descripción / Sector</label>
+                        <input type="text" class="form-control" @bind="Model.Description" placeholder="Ej: Fiambreria 1" />
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="switchEnabled" @bind="Model.IsEnabled">
+                        <label class="form-check-label" for="switchEnabled">Activa (Transmitir datos a esta balanza)</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="Guardar">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Balanza> balanzas = new();
+    private Balanza Model = new();
+    private bool ShowModal = false;
+    private string? Mensaje;
+    
+    private Dictionary<int, string> _pingStatus = new();
+    private bool _isPinging = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+        // Fire and forget al inicio
+        _ = VerificarConexionGlobal();
+    }
+
+    private async Task CargarDatos()
+    {
+        balanzas = await DbContext.Balanzas.ToListAsync();
+    }
+
+    private async Task VerificarConexionGlobal()
+    {
+        if (!balanzas.Any()) return;
+
+        _isPinging = true;
+        _pingStatus.Clear();
+        StateHasChanged();
+
+        using var pinger = new System.Net.NetworkInformation.Ping();
+        foreach(var b in balanzas)
+        {
+            _pingStatus[b.Id] = "🕒 Pinging...";
+            StateHasChanged();
+            
+            try
+            {
+                var pingReply = await pinger.SendPingAsync(b.IpAddress, 1500); // 1.5s timeout
+                if (pingReply.Status == System.Net.NetworkInformation.IPStatus.Success)
+                {
+                    _pingStatus[b.Id] = $"✅ Online ({pingReply.RoundtripTime}ms)";
+                }
+                else
+                {
+                    _pingStatus[b.Id] = $"❌ Offline ({pingReply.Status})";
+                }
+            }
+            catch(Exception)
+            {
+                _pingStatus[b.Id] = "❌ Offline";
+            }
+        }
+        _isPinging = false;
+        StateHasChanged();
+    }
+
+    private void CrearNueva()
+    {
+        Model = new Balanza();
+        ShowModal = true;
+    }
+
+    private void Editar(Balanza b)
+    {
+        Model = new Balanza
+        {
+            Id = b.Id,
+            IpAddress = b.IpAddress,
+            Description = b.Description,
+            IsEnabled = b.IsEnabled,
+            LastSyncDate = b.LastSyncDate,
+            LastSyncStatus = b.LastSyncStatus
+        };
+        ShowModal = true;
+    }
+
+    private async Task Eliminar(Balanza b)
+    {
+        DbContext.Balanzas.Remove(b);
+        await DbContext.SaveChangesAsync();
+        _pingStatus.Remove(b.Id);
+        Mensaje = "Balanza eliminada.";
+        await CargarDatos();
+    }
+
+    private async Task Guardar()
+    {
+        if (Model.Id == 0)
+        {
+            DbContext.Balanzas.Add(Model);
+        }
+        else
+        {
+            var dbItem = await DbContext.Balanzas.FindAsync(Model.Id);
+            if (dbItem != null)
+            {
+                dbItem.IpAddress = Model.IpAddress;
+                dbItem.Description = Model.Description;
+                dbItem.IsEnabled = Model.IsEnabled;
+            }
+        }
+        await DbContext.SaveChangesAsync();
+        ShowModal = false;
+        Mensaje = "Balanza guardada exitosamente.";
+        await CargarDatos();
+        // Verificar red de la nueva
+        _ = VerificarConexionGlobal();
+    }
+
+    private void CerrarModal()
+    {
+        ShowModal = false;
+    }
+}

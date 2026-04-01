@@ -1,0 +1,176 @@
+@page "/"
+@rendermode InteractiveServer
+@using BalanzaQ.Web.Models
+@using BalanzaQ.Web.Data
+@using BalanzaQ.Web.Services
+@using Microsoft.EntityFrameworkCore
+@inject BalanzaDbContext DbContext
+@inject ImportService ImportService
+@inject DigiService DigiService
+@inject IJSRuntime JS
+
+<PageTitle>BalanzaQ - Dashboard</PageTitle>
+
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12 text-center">
+            <h1 class="display-4 fw-bold text-primary">BalanzaQ Central</h1>
+            <p class="lead">Sistema de Transmisión Multi-Balanza Digi SM-300</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Mensaje))
+    {
+        <div class="alert @ClaseAlerta alert-dismissible fade show" role="alert">
+            @Mensaje
+            <button type="button" class="btn-close" @onclick="() => Mensaje = null"></button>
+        </div>
+    }
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <h2 class="h1 mb-3">📦 @_totalArticulos</h2>
+                    <h5 class="card-title text-muted">Artículos Importados</h5>
+                    <label for="fileInput" class="btn btn-primary btn-lg mt-3 w-100 @(_isImporting ? "disabled" : "")">
+                        @if (_isImporting)
+                        {
+                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                            <span> Importando...</span>
+                        }
+                        else
+                        {
+                            <span><i class="bi bi-cloud-download"></i> Seleccionar Módulo (.dat)</span>
+                        }
+                    </label>
+                    <InputFile id="fileInput" OnChange="ImportarDatos" accept=".dat,.txt,.csv" style="display: none;" disabled="@_isImporting" />
+                    <a href="/articulos" class="btn btn-outline-secondary w-100 mt-2">Gestionar Artículos</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm border-primary">
+                <div class="card-body text-center text-primary">
+                    <h2 class="h1 mb-3">📡 @_balanzasActivas / @_totalBalanzas</h2>
+                    <h5 class="card-title text-muted">Balanzas Activas</h5>
+                    
+                    <button class="btn btn-success btn-lg mt-3 w-100" @onclick="() => SincronizarTodas(true)" disabled="@_isSyncing">
+                        @if (_isSyncing)
+                        {
+                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                            <span> Transmitiendo...</span>
+                        }
+                        else
+                        {
+                            <span><i class="bi bi-broadcast"></i> Generar y Enviar a Balanzas</span>
+                        }
+                    </button>
+                    
+                    <div class="d-flex mt-2 gap-2">
+                        <button class="btn btn-outline-primary w-100" @onclick="() => SincronizarTodas(false)" disabled="@_isSyncing">
+                            <i class="bi bi-file-earmark-code"></i> Solo Generar Archivos DAT
+                        </button>
+                        <a href="/balanzas" class="btn btn-outline-primary w-100">Configuración</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int _totalArticulos = 0;
+    private int _totalBalanzas = 0;
+    private int _balanzasActivas = 0;
+    
+    private bool _isImporting = false;
+    private bool _isSyncing = false;
+    
+    private string? Mensaje;
+    private string ClaseAlerta = "alert-info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarEstadisticas();
+    }
+
+    private async Task CargarEstadisticas()
+    {
+        _totalArticulos = await DbContext.PluItems.CountAsync();
+        _totalBalanzas = await DbContext.Balanzas.CountAsync();
+        _balanzasActivas = await DbContext.Balanzas.CountAsync(b => b.IsEnabled);
+    }
+
+    private async Task ImportarDatos(InputFileChangeEventArgs e)
+    {
+        _isImporting = true;
+        try
+        {
+            var allowedSize = 10 * 1024 * 1024; // max 10MB para data.dat
+            using var stream = e.File.OpenReadStream(allowedSize);
+            int importados = await ImportService.ImportarDatosAsync(stream);
+            Mensaje = $"Importación exitosa. Se procesaron/actualizaron {importados} artículos del archivo {e.File.Name}.";
+            ClaseAlerta = "alert-success";
+            await CargarEstadisticas();
+        }
+        catch(Exception ex)
+        {
+            Mensaje = $"Error al importar: {ex.Message}";
+            ClaseAlerta = "alert-danger";
+        }
+        finally
+        {
+            _isImporting = false;
+        }
+    }
+
+    private async Task SincronizarTodas(bool enviarABalanza)
+    {
+        _isSyncing = true;
+        try
+        {
+            var balanzas = await DbContext.Balanzas.Where(b => b.IsEnabled).ToListAsync();
+            var articulos = await DbContext.PluItems.ToListAsync();
+
+            if (!balanzas.Any())
+            {
+                Mensaje = "No hay balanzas activas configuradas.";
+                ClaseAlerta = "alert-warning";
+                return;
+            }
+
+            int exitos = 0;
+            foreach(var b in balanzas)
+            {
+                var res = await DigiService.SyncBalanzaAsync(b, articulos, enviarABalanza);
+                b.LastSyncDate = DateTime.Now;
+                b.LastSyncStatus = res.Message;
+                
+                if(res.Message.Contains("Exito") || res.Message.Contains("Generado"))
+                {
+                    exitos++;
+                    if (!enviarABalanza && !string.IsNullOrEmpty(res.HexPayload))
+                    {
+                        string fileName = $"SM{b.IpAddress}F37.DAT";
+                        await JS.InvokeVoidAsync("downloadTextFile", fileName, res.HexPayload);
+                    }
+                }
+            }
+            await DbContext.SaveChangesAsync();
+
+            Mensaje = enviarABalanza ? $"Transmisión completada. {exitos} de {balanzas.Count} exitosas." : $"Módulos locales descargados para {balanzas.Count} balanzas.";
+            ClaseAlerta = exitos == balanzas.Count ? "alert-success" : "alert-warning";
+        }
+        catch(Exception ex)
+        {
+            Mensaje = $"Error crítico en transmisión: {ex.Message}";
+            ClaseAlerta = "alert-danger";
+        }
+        finally
+        {
+            _isSyncing = false;
+        }
+    }
+}

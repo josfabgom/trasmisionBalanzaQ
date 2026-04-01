@@ -1,0 +1,190 @@
+@page "/articulos"
+@rendermode InteractiveServer
+@using BalanzaQ.Web.Models
+@using BalanzaQ.Web.Data
+@using Microsoft.EntityFrameworkCore
+@inject BalanzaDbContext DbContext
+
+<PageTitle>Artículos</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Listado de Artículos a Procesar</h2>
+        <div class="input-group" style="max-width:300px;">
+            <input type="text" class="form-control" placeholder="Buscar PLU o Nombre" @bind="terminoBusqueda" @bind:event="oninput" @onkeyup="FiltrarLista" />
+            <button class="btn btn-outline-secondary" type="button"><i class="bi bi-search"></i></button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Mensaje))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @Mensaje
+            <button type="button" class="btn-close" @onclick="() => Mensaje = null"></button>
+        </div>
+    }
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle table-sm border rounded">
+            <thead class="table-dark">
+                <tr>
+                    <th>PLU</th>
+                    <th>Nombre Corto</th>
+                    <th>Nombre Ticket</th>
+                    <th>Precio ($)</th>
+                    <th>Grupo/Dpto.</th>
+                    <th>Sección</th>
+                    <th>Días Vto.</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in listaFiltrada)
+                {
+                    <tr>
+                        <td><strong>@p.PluCode</strong></td>
+                        <td>@(p.ShortName?.Length > 15 ? p.ShortName.Substring(0,15)+"..." : p.ShortName)</td>
+                        <td>@(p.Name?.Length > 30 ? p.Name.Substring(0,30)+"..." : p.Name)</td>
+                        <td class="text-success fw-bold">@p.Price.ToString("N2")</td>
+                        <td>@p.Group</td>
+                        <td>@p.Section</td>
+                        <td>@p.ShelfLife días</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(p)">Editar PLU</button>
+                        </td>
+                    </tr>
+                }
+                @if(!listaFiltrada.Any())
+                {
+                    <tr><td colspan="8" class="text-center text-muted p-4">No se encontraron artículos importados o con ese criterio de búsqueda. Importa el archivo data.dat en el Dashboard.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (ShowModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title">Modificar Artículo: @Model.PluCode</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label>Código PLU Base</label>
+                            <input type="number" class="form-control" @bind="Model.PluCode" disabled />
+                        </div>
+                        <div class="col-md-4">
+                            <label>Precio Actual</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" step="0.01" class="form-control text-success fw-bold" @bind="Model.Price" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Días de Vencimiento</label>
+                            <input type="number" class="form-control" @bind="Model.ShelfLife" />
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <label>Nombre del Producto en la Etiqueta (Máx. recomendado 30-35 chars)</label>
+                            <input type="text" class="form-control" @bind="Model.Name" />
+                            <small class="text-muted">Caracteres: @Model.Name?.Length</small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label>Nombre Corto</label>
+                            <input type="text" class="form-control" @bind="Model.ShortName" />
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-info border-0 rounded-0 mb-0 py-2">
+                    <i class="bi bi-info-circle-fill"></i> Nota: Modificar los artículos aquí afectará la transmisión vía digiwtcp. 
+                    Si vuelves a importar desde <code>data.dat</code>, los datos se podrían sobreescribir con los del archivo original dependiendo de tu sistema externo.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="Guardar">Aplicar Cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<PluItem> todosArticulos = new();
+    private List<PluItem> listaFiltrada = new();
+    private string terminoBusqueda = "";
+
+    private PluItem Model = new();
+    private bool ShowModal = false;
+    private string? Mensaje;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        todosArticulos = await DbContext.PluItems.OrderBy(p => p.PluCode).ToListAsync();
+        FiltrarLista();
+    }
+
+    private void FiltrarLista()
+    {
+        if (string.IsNullOrWhiteSpace(terminoBusqueda))
+        {
+            listaFiltrada = todosArticulos.ToList();
+        }
+        else
+        {
+            var t = terminoBusqueda.ToLowerInvariant();
+            listaFiltrada = todosArticulos.Where(p => 
+                p.Name.ToLowerInvariant().Contains(t) || 
+                p.PluCode.ToString().Contains(t) ||
+                p.ShortName.ToLowerInvariant().Contains(t)
+            ).ToList();
+        }
+    }
+
+    private void Editar(PluItem p)
+    {
+        Model = new PluItem
+        {
+            Id = p.Id,
+            PluCode = p.PluCode,
+            Name = p.Name,
+            ShortName = p.ShortName,
+            Price = p.Price,
+            ShelfLife = p.ShelfLife
+        };
+        ShowModal = true;
+    }
+
+    private async Task Guardar()
+    {
+        var dbItem = await DbContext.PluItems.FindAsync(Model.Id);
+        if (dbItem != null)
+        {
+            dbItem.Name = Model.Name;
+            dbItem.ShortName = Model.ShortName;
+            dbItem.Price = Model.Price;
+            dbItem.ShelfLife = Model.ShelfLife;
+            await DbContext.SaveChangesAsync();
+            
+            Mensaje = $"Artículo {dbItem.PluCode} actualizado correctamente.";
+            await CargarDatos();
+            ShowModal = false;
+        }
+    }
+
+    private void CerrarModal()
+    {
+        ShowModal = false;
+    }
+}
