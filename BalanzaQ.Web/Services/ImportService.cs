@@ -37,7 +37,7 @@ public class ImportService
                 
                 var plu = existingPlu ?? new PluItem { PluCode = pluId };
 
-                plu.ShortName = parts[3];
+                plu.ShortName = parts[2];
                 plu.Name = parts[3];
                 // Intentar parseo seguro a C# Culture Invariant o especifico. El precio "14099.00"
                 if(decimal.TryParse(parts[6], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal precio))

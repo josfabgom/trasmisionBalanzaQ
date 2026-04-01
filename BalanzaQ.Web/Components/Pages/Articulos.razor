@@ -4,21 +4,39 @@
 @using BalanzaQ.Web.Data
 @using Microsoft.EntityFrameworkCore
 @inject BalanzaDbContext DbContext
+@inject BalanzaQ.Web.Services.DigiService DigiService
+@inject IJSRuntime JS
 
 <PageTitle>Artículos</PageTitle>
 
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Listado de Artículos a Procesar</h2>
-        <div class="input-group" style="max-width:300px;">
-            <input type="text" class="form-control" placeholder="Buscar PLU o Nombre" @bind="terminoBusqueda" @bind:event="oninput" @onkeyup="FiltrarLista" />
-            <button class="btn btn-outline-secondary" type="button"><i class="bi bi-search"></i></button>
+        <div class="d-flex gap-2">
+            <button class="btn btn-success" @onclick="() => SincronizarSeleccionados(true)" disabled="@(!seleccionados.Any() || _isSyncing)">
+                @if (_isSyncing)
+                {
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                }
+                else
+                {
+                    <i class="bi bi-broadcast"></i>
+                }
+                Transmitir Seleccionados
+            </button>
+            <button class="btn btn-outline-primary" @onclick="() => SincronizarSeleccionados(false)" disabled="@(!seleccionados.Any() || _isSyncing)">
+                <i class="bi bi-file-earmark-code"></i> Generar DAT
+            </button>
+            <div class="input-group" style="max-width:300px;">
+                <input type="text" class="form-control" placeholder="Buscar PLU o Nombre" @bind="terminoBusqueda" @bind:event="oninput" @onkeyup="FiltrarLista" />
+                <button class="btn btn-outline-secondary" type="button"><i class="bi bi-search"></i></button>
+            </div>
         </div>
     </div>
 
     @if (!string.IsNullOrEmpty(Mensaje))
     {
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert @ClaseAlerta alert-dismissible fade show" role="alert">
             @Mensaje
             <button type="button" class="btn-close" @onclick="() => Mensaje = null"></button>
         </div>
@@ -28,6 +46,9 @@
         <table class="table table-hover align-middle table-sm border rounded">
             <thead class="table-dark">
                 <tr>
+                    <th style="width: 40px;">
+                        <input type="checkbox" class="form-check-input" @onchange="ToggleTodos" checked="@(listaFiltrada.Any() && seleccionados.Count >= listaFiltrada.Count)" />
+                    </th>
                     <th>PLU</th>
                     <th>Nombre Corto</th>
                     <th>Nombre Ticket</th>
@@ -42,6 +63,9 @@
                 @foreach (var p in listaFiltrada)
                 {
                     <tr>
+                        <td>
+                            <input type="checkbox" class="form-check-input" checked="@seleccionados.Contains(p.PluCode)" @onchange="(e) => ToggleSeleccion(p.PluCode, e)" />
+                        </td>
                         <td><strong>@p.PluCode</strong></td>
                         <td>@(p.ShortName?.Length > 15 ? p.ShortName.Substring(0,15)+"..." : p.ShortName)</td>
                         <td>@(p.Name?.Length > 30 ? p.Name.Substring(0,30)+"..." : p.Name)</td>
@@ -56,7 +80,7 @@
                 }
                 @if(!listaFiltrada.Any())
                 {
-                    <tr><td colspan="8" class="text-center text-muted p-4">No se encontraron artículos importados o con ese criterio de búsqueda. Importa el archivo data.dat en el Dashboard.</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted p-4">No se encontraron artículos importados o con ese criterio de búsqueda. Importa el archivo data.dat en el Dashboard.</td></tr>
                 }
             </tbody>
         </table>
@@ -123,6 +147,78 @@
     private PluItem Model = new();
     private bool ShowModal = false;
     private string? Mensaje;
+    private string ClaseAlerta = "alert-success";
+    private bool _isSyncing = false;
+    private HashSet<int> seleccionados = new();
+
+    private void ToggleSeleccion(int pluCode, ChangeEventArgs e)
+    {
+        bool isChecked = (bool?)e.Value ?? false;
+        if (isChecked) seleccionados.Add(pluCode);
+        else seleccionados.Remove(pluCode);
+    }
+
+    private void ToggleTodos(ChangeEventArgs e)
+    {
+        bool isChecked = (bool?)e.Value ?? false;
+        if (isChecked)
+        {
+            foreach (var p in listaFiltrada) seleccionados.Add(p.PluCode);
+        }
+        else
+        {
+            foreach (var p in listaFiltrada) seleccionados.Remove(p.PluCode);
+        }
+    }
+
+    private async Task SincronizarSeleccionados(bool enviarABalanza)
+    {
+        if (!seleccionados.Any()) return;
+        _isSyncing = true;
+        try
+        {
+            var balanzas = await DbContext.Balanzas.Where(b => b.IsEnabled).ToListAsync();
+            var articulosSeleccionados = todosArticulos.Where(a => seleccionados.Contains(a.PluCode)).ToList();
+
+            if (!balanzas.Any())
+            {
+                Mensaje = "No hay balanzas activas configuradas.";
+                ClaseAlerta = "alert-warning";
+                return;
+            }
+
+            int exitos = 0;
+            foreach (var b in balanzas)
+            {
+                var res = await DigiService.SyncBalanzaAsync(b, articulosSeleccionados, enviarABalanza);
+                b.LastSyncDate = DateTime.Now;
+                b.LastSyncStatus = res.Message;
+
+                if (res.Message.Contains("Exito") || res.Message.Contains("Generado"))
+                {
+                    exitos++;
+                    if (!enviarABalanza && !string.IsNullOrEmpty(res.HexPayload))
+                    {
+                        string fileName = $"SM{b.IpAddress}F37_Sel.DAT";
+                        await JS.InvokeVoidAsync("downloadTextFile", fileName, res.HexPayload);
+                    }
+                }
+            }
+            await DbContext.SaveChangesAsync();
+
+            Mensaje = enviarABalanza ? $"Transmisión completada. {exitos} de {balanzas.Count} exitosas." : $"Módulos locales descargados para {balanzas.Count} balanzas.";
+            ClaseAlerta = exitos == balanzas.Count ? "alert-success" : "alert-warning";
+        }
+        catch (Exception ex)
+        {
+            Mensaje = $"Error crítico en transmisión: {ex.Message}";
+            ClaseAlerta = "alert-danger";
+        }
+        finally
+        {
+            _isSyncing = false;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

@@ -15,7 +15,16 @@ public class DigiService
     public DigiService(IConfiguration config)
     {
         _config = config;
-        _baseDir = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..")); // Raiz del proyecto
+        // Si el directorio actual tiene TEMPLATE.DAT, asume que es la raíz (portable)
+        string currentDir = Directory.GetCurrentDirectory();
+        if (File.Exists(Path.Combine(currentDir, "TEMPLATE.DAT")) || Directory.Exists(Path.Combine(currentDir, "Digi")))
+        {
+            _baseDir = currentDir;
+        }
+        else
+        {
+            _baseDir = Path.GetFullPath(Path.Combine(currentDir, "..")); // Modo desarrollo
+        }
     }
 
     public async Task<(string Message, string HexPayload)> SyncBalanzaAsync(Balanza balanza, List<PluItem> items, bool enviarABalanza = true)
@@ -76,13 +85,42 @@ public class DigiService
                 Array.Copy(pluBcd, 0, curBefore, 0, 4);
 
                 // PRECIO BCD (Bytes 11-14)
-                int priceCents = (int)Math.Round(item.Price * 100);
-                byte[] priceBcd = IntToBcdArray(priceCents, 4);
+                // Se observó que el BCD esperado de 28376.00 es 00 28 37 60 (283760), es decir, por 10.
+                int priceScaled = (int)Math.Round(item.Price * 10);
+                byte[] priceBcd = IntToBcdArray(priceScaled, 4);
                 Array.Copy(priceBcd, 0, curBefore, 11, 4);
 
-                // Nombre
-                string nameTruncated = item.Name.Length > 30 ? item.Name.Substring(0, 30) : item.Name;
+                // Nombre (DIGI SM suele tener un límite estricto de ~25 dependiendo de la asignación)
+                string nameToUse = string.IsNullOrWhiteSpace(item.ShortName) ? item.Name : item.ShortName;
+                string nameTruncated = nameToUse.Length > 25 ? nameToUse.Substring(0, 25) : nameToUse;
                 byte[] nameBytes = Encoding.ASCII.GetBytes(nameTruncated);
+
+                // Forzamos el Byte 5 a '43' (0x43) si era 0, o lo dejamos en 41 dependiendo de algún flag si fuera necesario,
+                // Pero por ahora igualamos a lo que el usuario espera según el item (PLU 36 = 43, 231 = 41).
+                // Podría tener que ver con si es Group=1 (carniceria) vs Group=11 (quesos). Para igualarlo lo dejaremos en 0x43 si el grupo es 1.
+                if (item.Group == 1)
+                {
+                    curBefore[5] = 0x43;
+                }
+                else
+                {
+                    curBefore[5] = 0x41;
+                }
+
+                // ITEM CODE (Bytes 19-23)
+                // DIGI commonly expects item code to be BCD padded with Fs (or 1s in some configs) up to 10 digits
+                // Si PluCode es par (ej 36), parece llevar cero a la izquierda para hacerlo impar según el archivo esperado (03611...)
+                string strCode = item.PluCode.ToString();
+                if (strCode.Length % 2 == 0) strCode = "0" + strCode;
+                strCode = strCode.PadRight(10, '1'); // Pad with 1s to 10 chars
+                byte[] codeBcd = new byte[5];
+                for (int i = 0; i < 5; i++) codeBcd[i] = Convert.ToByte(strCode.Substring(i * 2, 2), 16);
+                Array.Copy(codeBcd, 0, curBefore, 19, 5);
+                
+                // SHELF LIFE (Bytes 24-25 and 26-27)
+                byte[] shelfBcd = IntToBcdArray(item.ShelfLife, 2);
+                Array.Copy(shelfBcd, 0, curBefore, 24, 2); // Sell By
+                Array.Copy(shelfBcd, 0, curBefore, 26, 2); // Used By
 
                 // Len
                 curBefore[curBefore.Length - 1] = (byte)nameBytes.Length;
