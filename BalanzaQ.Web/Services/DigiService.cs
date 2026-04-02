@@ -77,8 +77,7 @@ public class DigiService
 
             foreach (var item in items)
             {
-                paylList.Clear();
-                // Lógica Dinámica con Mapeo de Campos REAL (Forense 153)
+                // Mapeo Forense Digi (V3)
                 byte[] recordHeader = new byte[numNameStart + 3];
                 Array.Copy(templateBytes, 0, recordHeader, 0, recordHeader.Length);
 
@@ -130,7 +129,7 @@ public class DigiService
 
             // 3. Escribir y enviar archivo único
             string destFileName = $"SM{balanza.IpAddress}F37.DAT";
-            string datFileDigi = Path.Combine(_digiDir, destFileName);
+            string datFileDigi = Path.Combine(digiFolder, destFileName);
             string hexPayload = finalHexAll.ToString().ToUpper();
 
             if (!enviarABalanza)
