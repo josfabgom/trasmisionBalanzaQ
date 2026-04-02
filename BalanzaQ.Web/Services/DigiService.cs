@@ -83,28 +83,35 @@ public class DigiService
 
                 foreach (var item in batchItems)
                 {
-                    // Volver a lógica dinámica para no romper patrones 03 07
+                    // Lógica Dinámica con todas las correcciones integradas
                     byte[] recordHeader = new byte[numNameStart + 3];
                     Array.Copy(templateBytes, 0, recordHeader, 0, recordHeader.Length);
 
-                    // PLU BCD (Bytes 0-3)
+                    // 1. PLU BCD (Bytes 0-3)
                     int pluCode = item.PluCode;
                     byte[] pluBcd = IntToBcdArray(pluCode, 4);
                     Array.Copy(pluBcd, 0, recordHeader, 0, 4);
 
-                    // CONTROL BYTE (Byte 5): 3D para Pesado (P), 41 para Unitario (N)
-                    bool isPesable = item.ItemType == "P";
-                    recordHeader[5] = isPesable ? (byte)0x3D : (byte)0x41;
+                    // 2. NOMBRE y HEADER (Cálculos previos)
+                    string nameToUse = string.IsNullOrWhiteSpace(item.ShortName) ? item.Name : item.ShortName;
+                    if (nameToUse.Length > 28) nameToUse = nameToUse.Substring(0, 28);
+                    byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
+                    int nameLen = nameBytes.Length;
 
-                    // BYTE 16: 09 para Pesado (P), 05 para Unitario (N)
+                    // 3. HEADER / LARGO (Byte 5): Fórmula Base + (Len * 2)
+                    bool isPesable = item.ItemType == "P";
+                    int headerBase = isPesable ? 15 : 35;
+                    recordHeader[5] = (byte)(headerBase + (nameLen * 2));
+
+                    // 4. CONTROL BYTE (Byte 16): 09 (P), 05 (N)
                     recordHeader[16] = isPesable ? (byte)0x09 : (byte)0x05;
 
-                    // PRECIO BCD (Bytes 11-14)
+                    // 5. PRECIO BCD (Bytes 11-14)
                     int priceScaled = (int)Math.Round(item.Price * 10);
                     byte[] priceBcd = IntToBcdArray(priceScaled, 4);
                     Array.Copy(priceBcd, 0, recordHeader, 11, 4);
 
-                    // ITEM CODE (Bytes 19-23)
+                    // 6. ITEM CODE (Bytes 19-23)
                     string strCode = item.PluCode.ToString();
                     if (strCode.Length % 2 == 0) strCode = "0" + strCode;
                     strCode = strCode.PadRight(10, '1');
@@ -112,17 +119,13 @@ public class DigiService
                     for (int i = 0; i < 5; i++) codeBcd[i] = Convert.ToByte(strCode.Substring(i * 2, 2), 16);
                     Array.Copy(codeBcd, 0, recordHeader, 19, 5);
 
-                    // SECCIÓN / FORMATO (Bytes 24-25 y 26-27)
+                    // 7. SECCIÓN / FORMATO (Bytes 24-25 y 26-27)
                     byte[] sectionBcd = IntToBcdArray(item.Section, 2);
                     Array.Copy(sectionBcd, 0, recordHeader, 24, 2);
                     Array.Copy(sectionBcd, 0, recordHeader, 26, 2);
 
-                    // NOMBRE (Byte dinámico)
-                    string nameToUse = string.IsNullOrWhiteSpace(item.ShortName) ? item.Name : item.ShortName;
-                    byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
-                    if (nameBytes.Length > 28) nameBytes = nameBytes.Take(28).ToArray();
-                    
-                    recordHeader[recordHeader.Length - 1] = (byte)nameBytes.Length;
+                    // 8. LONGITUD NOMBRE (Byte final del header)
+                    recordHeader[recordHeader.Length - 1] = (byte)nameLen;
 
                     paylList.AddRange(recordHeader);
                     paylList.AddRange(nameBytes);
@@ -131,12 +134,6 @@ public class DigiService
 
                 string finalHex = Convert.ToHexString(paylList.ToArray());
                 finalHexAll.Append(finalHex);
-
-                if (chunkStart + batchSize >= items.Count)
-                {
-                    // Es el último lote, añadir terminador de archivo E2 si no existe
-                    finalHexAll.Append("E2");
-                }
 
                 if (!enviarABalanza)
                 {
