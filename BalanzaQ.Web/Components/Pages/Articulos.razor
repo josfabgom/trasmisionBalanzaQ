@@ -67,6 +67,7 @@
                     <th>Grupo/Dpto.</th>
                     <th>Sección</th>
                     <th>Días Vto.</th>
+                    <th>Tipo</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
@@ -84,6 +85,10 @@
                         <td class="text-success fw-bold">@p.Price.ToString("N2")</td>
                         <td>@p.Group</td>
                         <td>@p.Section</td>
+                        <td>
+                            @if (p.ItemType == "P") { <span class="badge bg-primary">Pesado</span> }
+                            else { <span class="badge bg-info">Unidad</span> }
+                        </td>
                         <td>@p.ShelfLife días</td>
                         <td>
                             @if (p.LastSyncStatus == "Sincronizado")
@@ -180,6 +185,13 @@
                         <div class="col-md-6">
                             <label>Nombre Corto</label>
                             <input type="text" class="form-control" @bind="Model.ShortName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label>Tipo de Artículo</label>
+                            <select class="form-select" @bind="Model.ItemType">
+                                <option value="P">P - Pesable (Peso/kg)</option>
+                                <option value="N">N - No Pesable (Unidad/pza)</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -383,7 +395,8 @@
             Name = p.Name,
             ShortName = p.ShortName,
             Price = p.Price,
-            ShelfLife = p.ShelfLife
+            ShelfLife = p.ShelfLife,
+            ItemType = p.ItemType
         };
         ShowModal = true;
     }
@@ -397,6 +410,7 @@
             dbItem.ShortName = Model.ShortName;
             dbItem.Price = Model.Price;
             dbItem.ShelfLife = Model.ShelfLife;
+            dbItem.ItemType = Model.ItemType;
             await DbContext.SaveChangesAsync();
             
             Mensaje = $"Artículo {dbItem.PluCode} actualizado correctamente.";

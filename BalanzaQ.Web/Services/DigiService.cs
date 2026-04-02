@@ -87,19 +87,19 @@ public class DigiService
 
                     // HEADER (5): Base(P=15, N=35) + (Len*2)
                     bool isPesable = item.ItemType == "P";
-                    recordHeader[5] = (byte)((isPesable ? 15 : 35) + (currentLen * 2));
+                    // Fórmulas para SM300: Header[5] = 42 + len, ItemCode = PadLeft(5,0).PadRight(10,1)
+                    recordHeader[5] = (byte)(0x2A + currentLen); 
 
                     // PRECIO (11-14)
                     Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, recordHeader, 11, 4);
 
                     // CONTROL Y SECCIÓN (16-17)
-                    recordHeader[16] = isPesable ? (byte)0x09 : (byte)0x05;
-                    recordHeader[17] = (byte)item.Section;
+                    // Control y Sección (Basado en el ABM y patrón SM300)
+                    recordHeader[16] = (item.ItemType == "N") ? (byte)0x01 : (byte)0x05; 
+                    recordHeader[17] = (byte)item.Section; 
 
                     // ITEM CODE (18-22)
-                    string strCode = item.PluCode.ToString();
-                    if (strCode.Length % 2 != 0) strCode = "0" + strCode;
-                    strCode = strCode.PadRight(10, '1');
+                    string strCode = item.PluCode.ToString().PadLeft(5, '0').PadRight(10, '1');
                     byte[] codeBcd = new byte[5];
                     for (int j = 0; j < 5; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
                     Array.Copy(codeBcd, 0, recordHeader, 18, 5);
@@ -125,6 +125,10 @@ public class DigiService
 
                 if (!enviarABalanza) continue;
 
+                // Limpiar resultado previo para evitar colisiones
+                string resultPath = Path.Combine(digiFolder, "RESULT");
+                if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
+
                 // 3. Escribir Lote a Balanza
                 ProcessStartInfo psi = new ProcessStartInfo
                 {
@@ -138,9 +142,7 @@ public class DigiService
 
                 using var process = Process.Start(psi);
                 await process!.WaitForExitAsync();
-
-                string resultPath = Path.Combine(digiFolder, "RESULT");
-                string resCode = File.Exists(resultPath) ? File.ReadAllText(resultPath).Trim() : "MISSING";
+                string resCode = await ReadResultWithRetry(resultPath);
                 bool success = (resCode == "0");
 
                 foreach (var bItem in batchItems)
@@ -182,31 +184,32 @@ public class DigiService
                 RedirectStandardOutput = true
             };
 
+            // Limpiar resultado previo
+            string resultPath = Path.Combine(digiFolder, "RESULT");
+            if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
+
             using var process = Process.Start(psi);
             await process!.WaitForExitAsync();
 
-            string resultPath = Path.Combine(digiFolder, "RESULT");
-            if (File.Exists(resultPath))
+            string resCode = await ReadResultWithRetry(resultPath);
+            if (resCode == "0")
             {
-                string resCode = File.ReadAllText(resultPath).Trim();
-                if (resCode == "0")
+                if (command == "RD")
                 {
-                    if (command == "RD")
+                    string sourceFile = Path.Combine(digiFolder, $"SM{balanza.IpAddress}F{fileId}.DAT");
+                    if (File.Exists(sourceFile))
                     {
-                        string sourceFile = Path.Combine(digiFolder, $"SM{balanza.IpAddress}F{fileId}.DAT");
-                        if (File.Exists(sourceFile))
-                        {
-                            // Copiar a la raíz para fácil acceso
-                            string destFile = Path.Combine(_baseDir, $"SM{balanza.IpAddress}F{fileId}_READ.DAT");
-                            File.Copy(sourceFile, destFile, true);
-                            return $"Éxito: Datos leídos y guardados en {Path.GetFileName(destFile)}";
-                        }
+                        // Copiar a la raíz para fácil acceso
+                        string destFile = Path.Combine(_baseDir, $"SM{balanza.IpAddress}F{fileId}_READ.DAT");
+                        File.Copy(sourceFile, destFile, true);
+                        return $"Éxito: Datos leídos y guardados en {Path.GetFileName(destFile)}";
                     }
-                    return "Éxito: Operación completada.";
                 }
-                return $"Error de balanza: Código {resCode}";
+                return "Éxito: Operación completada.";
             }
-            return "Error: No se recibió respuesta de digiwtcp.";
+
+            if (resCode == "MISSING" || resCode == "LOCKED") return "Error: No se recibió respuesta de la balanza o el archivo está bloqueado.";
+            return $"Error de balanza: Código {resCode}";
         }
         catch (Exception ex)
         {
@@ -230,6 +233,23 @@ public class DigiService
             if (match) return i;
         }
         return -1;
+    }
+
+    private async Task<string> ReadResultWithRetry(string path)
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            try
+            {
+                if (File.Exists(path)) return (await File.ReadAllTextAsync(path)).Trim();
+                await Task.Delay(100); // Esperar a que el archivo aparezca
+            }
+            catch (IOException)
+            {
+                await Task.Delay(200); // Esperar si está bloqueado
+            }
+        }
+        return File.Exists(path) ? "LOCKED" : "MISSING";
     }
 
     private byte[] IntToBcdArray(int value, int numBytes)

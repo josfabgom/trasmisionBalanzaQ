@@ -23,3 +23,9 @@ Generar_Version_Portable.bat
 
 # User Data
 BalanzaQ.Web/balanzas.db
+Portable/
+*.rar
+*.zip
+Digi/SM*F*.DAT
+**/*.DAT_2*
+~$*.docx
