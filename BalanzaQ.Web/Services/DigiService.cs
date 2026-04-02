@@ -72,76 +72,72 @@ public class DigiService
             byte[] afterName = new byte[templateBytes.Length - (numNameStart + 3 + nameLen)];
             Array.Copy(templateBytes, numNameStart + 3 + nameLen, afterName, 0, afterName.Length);
 
-            // 2. Construir payload en LOTES para evitar límite de buffer de 64KB en la balanza
-            int batchSize = 100;
+            // 2. Construir payload completo
             StringBuilder finalHexAll = new StringBuilder();
+            var paylList = new List<byte>();
 
-            for (int chunkStart = 0; chunkStart < items.Count; chunkStart += batchSize)
+            foreach (var item in items)
             {
-                var batchItems = items.Skip(chunkStart).Take(batchSize).ToList();
-                var paylList = new List<byte>();
+                paylList.Clear();
+                // Lógica Dinámica con Mapeo de Campos REAL (Forense 153)
+                byte[] recordHeader = new byte[numNameStart + 3];
+                Array.Copy(templateBytes, 0, recordHeader, 0, recordHeader.Length);
 
-                foreach (var item in batchItems)
-                {
-                    // Lógica Dinámica con todas las correcciones integradas
-                    byte[] recordHeader = new byte[numNameStart + 3];
-                    Array.Copy(templateBytes, 0, recordHeader, 0, recordHeader.Length);
+                // 1. PLU BCD (Bytes 0-3)
+                int pluCode = item.PluCode;
+                byte[] pluBcd = IntToBcdArray(pluCode, 4);
+                Array.Copy(pluBcd, 0, recordHeader, 0, 4);
 
-                    // 1. PLU BCD (Bytes 0-3)
-                    int pluCode = item.PluCode;
-                    byte[] pluBcd = IntToBcdArray(pluCode, 4);
-                    Array.Copy(pluBcd, 0, recordHeader, 0, 4);
+                // 2. NOMBRE (Uso prioritario de Name para Header exacto)
+                string nameToUse = item.Name;
+                if (nameToUse.Length > 28) nameToUse = nameToUse.Substring(0, 28);
+                byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
+                int currentNameLen = nameBytes.Length;
 
-                    // 2. NOMBRE y HEADER (Cálculos previos)
-                    string nameToUse = string.IsNullOrWhiteSpace(item.ShortName) ? item.Name : item.ShortName;
-                    if (nameToUse.Length > 28) nameToUse = nameToUse.Substring(0, 28);
-                    byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
-                    int currentNameLen = nameBytes.Length;
+                // 3. HEADER / LARGO (Byte 5): Fórmula Base + (Len * 2)
+                bool isPesable = item.ItemType == "P";
+                int headerBase = isPesable ? 15 : 35;
+                recordHeader[5] = (byte)(headerBase + (currentNameLen * 2));
 
-                    // 3. HEADER / LARGO (Byte 5): Fórmula Base + (Len * 2)
-                    bool isPesable = item.ItemType == "P";
-                    int headerBase = isPesable ? 15 : 35;
-                    recordHeader[5] = (byte)(headerBase + (currentNameLen * 2));
+                // 4. PRECIO BCD (Bytes 11-14)
+                int priceScaled = (int)Math.Round(item.Price * 10);
+                byte[] priceBcd = IntToBcdArray(priceScaled, 4);
+                Array.Copy(priceBcd, 0, recordHeader, 11, 4);
 
-                    // 4. CONTROL BYTE (Byte 16): 09 (P), 05 (N)
-                    recordHeader[16] = isPesable ? (byte)0x09 : (byte)0x05;
+                // 5. CONTROL Y SECCIÓN (Byte 16-17)
+                recordHeader[16] = isPesable ? (byte)0x09 : (byte)0x05;
+                recordHeader[17] = (byte)item.Section; // Sección en index 17 según traza real
 
-                    // 5. PRECIO BCD (Bytes 11-14)
-                    int priceScaled = (int)Math.Round(item.Price * 10);
-                    byte[] priceBcd = IntToBcdArray(priceScaled, 4);
-                    Array.Copy(priceBcd, 0, recordHeader, 11, 4);
+                // 6. ITEM CODE (Bytes 18-22) - Alineación exacta
+                string strCode = item.PluCode.ToString();
+                if (strCode.Length % 2 != 0) strCode = "0" + strCode; // Pad para ser par si es necesario
+                strCode = strCode.PadRight(10, '1');
+                byte[] codeBcd = new byte[5];
+                for (int i = 0; i < 5; i++) codeBcd[i] = Convert.ToByte(strCode.Substring(i * 2, 2), 16);
+                Array.Copy(codeBcd, 0, recordHeader, 18, 5);
 
-                    // 6. ITEM CODE (Bytes 19-23)
-                    string strCode = item.PluCode.ToString();
-                    if (strCode.Length % 2 == 0) strCode = "0" + strCode;
-                    strCode = strCode.PadRight(10, '1');
-                    byte[] codeBcd = new byte[5];
-                    for (int i = 0; i < 5; i++) codeBcd[i] = Convert.ToByte(strCode.Substring(i * 2, 2), 16);
-                    Array.Copy(codeBcd, 0, recordHeader, 19, 5);
+                // 7. SECCIÓN / FORMATO (Bytes 24-27)
+                byte[] sectionBcd = IntToBcdArray(item.Section, 2);
+                Array.Copy(sectionBcd, 0, recordHeader, 24, 2);
+                Array.Copy(sectionBcd, 0, recordHeader, 26, 2);
 
-                    // 7. SECCIÓN / FORMATO (Bytes 24-25 y 26-27)
-                    byte[] sectionBcd = IntToBcdArray(item.Section, 2);
-                    Array.Copy(sectionBcd, 0, recordHeader, 24, 2);
-                    Array.Copy(sectionBcd, 0, recordHeader, 26, 2);
+                // 8. LONGITUD NOMBRE (Byte final del header)
+                recordHeader[recordHeader.Length - 1] = (byte)currentNameLen;
 
-                    // 8. LONGITUD NOMBRE (Byte final del header)
-                    recordHeader[recordHeader.Length - 1] = (byte)currentNameLen;
+                finalHexAll.Append(Convert.ToHexString(recordHeader));
+                finalHexAll.Append(Convert.ToHexString(nameBytes));
+                finalHexAll.Append(Convert.ToHexString(afterName));
+            }
 
-                    paylList.AddRange(recordHeader);
-                    paylList.AddRange(nameBytes);
-                    paylList.AddRange(afterName);
-                }
+            // 3. Escribir y enviar archivo único
+            string destFileName = $"SM{balanza.IpAddress}F37.DAT";
+            string datFileDigi = Path.Combine(_digiDir, destFileName);
+            string hexPayload = finalHexAll.ToString().ToUpper();
 
-                string finalHex = Convert.ToHexString(paylList.ToArray());
-                finalHexAll.Append(finalHex);
-
-                if (!enviarABalanza)
-                {
-                    // Solo guardamos un consolidado local y salimos (para modo demo/archivoDAT)
-                    string dDebugFile = Path.Combine(_baseDir, $"SM{balanza.IpAddress}F37_DEBUG.DAT");
-                    File.WriteAllText(dDebugFile, finalHexAll.ToString(), Encoding.ASCII);
-                    continue; // Skip balanza transmit if requested
-                }
+                // Solo guardamos un consolidado local y salimos (para modo demo/archivoDAT)
+                string dDebugFile = Path.Combine(_baseDir, $"SM{balanza.IpAddress}F37_DEBUG.DAT");
+                File.WriteAllText(dDebugFile, hexPayload, Encoding.ASCII);
+                return ("OK: Archivo configurado en modo manual.", dDebugFile);
 
                 // 3. Escribir archivo F37 del Lote en directorio local
                 string destFileName = $"SM{balanza.IpAddress}F37.DAT";
