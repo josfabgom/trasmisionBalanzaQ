@@ -96,12 +96,12 @@ public class DigiService
                     string nameToUse = string.IsNullOrWhiteSpace(item.ShortName) ? item.Name : item.ShortName;
                     if (nameToUse.Length > 28) nameToUse = nameToUse.Substring(0, 28);
                     byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
-                    int nameLen = nameBytes.Length;
+                    int currentNameLen = nameBytes.Length;
 
                     // 3. HEADER / LARGO (Byte 5): Fórmula Base + (Len * 2)
                     bool isPesable = item.ItemType == "P";
                     int headerBase = isPesable ? 15 : 35;
-                    recordHeader[5] = (byte)(headerBase + (nameLen * 2));
+                    recordHeader[5] = (byte)(headerBase + (currentNameLen * 2));
 
                     // 4. CONTROL BYTE (Byte 16): 09 (P), 05 (N)
                     recordHeader[16] = isPesable ? (byte)0x09 : (byte)0x05;
@@ -125,7 +125,7 @@ public class DigiService
                     Array.Copy(sectionBcd, 0, recordHeader, 26, 2);
 
                     // 8. LONGITUD NOMBRE (Byte final del header)
-                    recordHeader[recordHeader.Length - 1] = (byte)nameLen;
+                    recordHeader[recordHeader.Length - 1] = (byte)currentNameLen;
 
                     paylList.AddRange(recordHeader);
                     paylList.AddRange(nameBytes);
