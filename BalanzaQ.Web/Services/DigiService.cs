@@ -72,9 +72,8 @@ public class DigiService
             byte[] afterName = new byte[templateBytes.Length - (numNameStart + 3 + nameLen)];
             Array.Copy(templateBytes, numNameStart + 3 + nameLen, afterName, 0, afterName.Length);
 
-            // 2. Construir payload completo
+            // 2. Construir Payload Unificado
             StringBuilder finalHexAll = new StringBuilder();
-            var paylList = new List<byte>();
 
             foreach (var item in items)
             {
@@ -134,71 +133,41 @@ public class DigiService
             string datFileDigi = Path.Combine(_digiDir, destFileName);
             string hexPayload = finalHexAll.ToString().ToUpper();
 
-                // Solo guardamos un consolidado local y salimos (para modo demo/archivoDAT)
+            if (!enviarABalanza)
+            {
                 string dDebugFile = Path.Combine(_baseDir, $"SM{balanza.IpAddress}F37_DEBUG.DAT");
                 File.WriteAllText(dDebugFile, hexPayload, Encoding.ASCII);
-                return ("OK: Archivo configurado en modo manual.", dDebugFile);
-
-                // 3. Escribir archivo F37 del Lote en directorio local
-                string destFileName = $"SM{balanza.IpAddress}F37.DAT";
-                string datFileRoot = Path.Combine(_baseDir, destFileName);
-                string datFileDigi = Path.Combine(digiFolder, destFileName);
-
-                File.WriteAllText(datFileRoot, finalHex, Encoding.ASCII);
-                File.WriteAllText(datFileDigi, finalHex, Encoding.ASCII);
-
-                // 4. Invocar digiwtcp.exe para escribir
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = digiExe,
-                    Arguments = $"WR 37 {balanza.IpAddress}",
-                    WorkingDirectory = digiFolder,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true
-                };
-
-                using var process = Process.Start(psi);
-                await process!.WaitForExitAsync();
-
-                // Validar RESULT
-                string resultPath = Path.Combine(digiFolder, "RESULT");
-                bool success = false;
-                string resCode = "ERROR_RESULT_MISSING";
-
-                if (File.Exists(resultPath))
-                {
-                    resCode = File.ReadAllText(resultPath).Trim();
-                    success = (resCode == "0");
-                }
-
-                // ACTUALIZAR ESTADO DE CADA ITEM DEL LOTE
-                foreach(var item in batchItems)
-                {
-                    item.LastSyncDate = DateTime.Now;
-                    if (success)
-                    {
-                        item.LastSyncStatus = "Sincronizado";
-                        item.LastSyncError = null;
-                        item.IsSyncronized = true;
-                    }
-                    else
-                    {
-                        item.LastSyncStatus = "Error";
-                        item.LastSyncError = resCode;
-                        item.IsSyncronized = false;
-                    }
-                }
-
-                if (!success)
-                {
-                    return ($"Error de balanza en lote {chunkStart}: Código {resCode}", finalHexAll.ToString());
-                }
+                return ("Modo manual: Archivo DAT generado.", dDebugFile);
             }
 
-            if (!enviarABalanza) return ("Generado, no enviado.", finalHexAll.ToString());
+            // 3. Escribir a Balanza
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = digiExe,
+                Arguments = $"WT 37 {destFileName} {balanza.IpAddress}",
+                WorkingDirectory = digiFolder,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true
+            };
 
-            return ("Exito", finalHexAll.ToString());
+            using var process = Process.Start(psi);
+            await process!.WaitForExitAsync();
+
+            string resultPath = Path.Combine(digiFolder, "RESULT");
+            string resCode = File.Exists(resultPath) ? File.ReadAllText(resultPath).Trim() : "MISSING";
+            bool success = (resCode == "0");
+
+            foreach (var item in items)
+            {
+                item.LastSyncDate = DateTime.Now;
+                item.LastSyncStatus = success ? "Sincronizado" : "Error";
+                item.LastSyncError = success ? null : resCode;
+                item.IsSyncronized = success;
+            }
+
+            if (!success) return ($"Error de balanza: Código {resCode}", hexPayload);
+            return ("Exito", hexPayload);
         }
         catch (Exception ex)
         {
