@@ -83,27 +83,26 @@ public class DigiService
 
                 foreach (var item in batchItems)
                 {
-                    byte[] curBefore = new byte[beforeName.Length];
-                    Array.Copy(beforeName, curBefore, beforeName.Length);
+                    // TRABAJAR SOBRE UNA COPIA FIJA DE LA PLANTILLA (133 bytes)
+                    byte[] record = new byte[templateBytes.Length];
+                    Array.Copy(templateBytes, record, templateBytes.Length);
 
                     // PLU BCD (Bytes 0-3)
                     int pluCode = item.PluCode;
-                    Console.WriteLine($"Procesando PLU {pluCode}: ItemType='{item.ItemType}'");
                     byte[] pluBcd = IntToBcdArray(pluCode, 4);
-                    Array.Copy(pluBcd, 0, curBefore, 0, 4);
+                    Array.Copy(pluBcd, 0, record, 0, 4);
 
                     // CONTROL BYTE (Byte 5): 3D para Pesado (P), 41 para Unitario (N)
                     bool isPesable = item.ItemType == "P" || item.RawType == 1;
-                    curBefore[5] = isPesable ? (byte)0x3D : (byte)0x41;
-                    Console.WriteLine($"PLU {pluCode}: ItemType='{item.ItemType}', RawType={item.RawType}, isPesable={isPesable} => Byte 5={curBefore[5]:X2}");
+                    record[5] = isPesable ? (byte)0x3D : (byte)0x41;
 
                     // BYTE 16: 09 para Pesado (P), 05 para Unitario (N)
-                    curBefore[16] = isPesable ? (byte)0x09 : (byte)0x05;
+                    record[16] = isPesable ? (byte)0x09 : (byte)0x05;
 
                     // PRECIO BCD (Bytes 11-14)
                     int priceScaled = (int)Math.Round(item.Price * 10);
                     byte[] priceBcd = IntToBcdArray(priceScaled, 4);
-                    Array.Copy(priceBcd, 0, curBefore, 11, 4);
+                    Array.Copy(priceBcd, 0, record, 11, 4);
 
                     // ITEM CODE (Bytes 19-23)
                     string strCode = item.PluCode.ToString();
@@ -111,29 +110,37 @@ public class DigiService
                     strCode = strCode.PadRight(10, '1');
                     byte[] codeBcd = new byte[5];
                     for (int i = 0; i < 5; i++) codeBcd[i] = Convert.ToByte(strCode.Substring(i * 2, 2), 16);
-                    Array.Copy(codeBcd, 0, curBefore, 19, 5);
+                    Array.Copy(codeBcd, 0, record, 19, 5);
 
                     // SECCIÓN / FORMATO (Bytes 24-25 y 26-27)
-                    // Según forense: 36 (Sec 45) -> 00 45. 231 (Sec 14?) -> 00 14.
-                    // Se trata como BCD simple del número de sección/label format
                     byte[] sectionBcd = IntToBcdArray(item.Section, 2);
-                    Array.Copy(sectionBcd, 0, curBefore, 24, 2);
-                    Array.Copy(sectionBcd, 0, curBefore, 26, 2);
+                    Array.Copy(sectionBcd, 0, record, 24, 2);
+                    Array.Copy(sectionBcd, 0, record, 26, 2);
 
-                    // Nombre
+                    // NOMBRE (Byte 30=Longitud, Byte 31...=Texto)
                     string nameToUse = string.IsNullOrWhiteSpace(item.ShortName) ? item.Name : item.ShortName;
-                    string nameTruncated = nameToUse.Length > 25 ? nameToUse.Substring(0, 25) : nameToUse;
-                    byte[] nameBytes = Encoding.ASCII.GetBytes(nameTruncated);
+                    byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
+                    
+                    // En el registro de 133 bytes, el espacio para nombre va del 31 al 53 (23 bytes max)
+                    int maxNameLen = 23;
+                    if (nameBytes.Length > maxNameLen) nameBytes = nameBytes.Take(maxNameLen).ToArray();
+                    
+                    record[30] = (byte)nameBytes.Length;
+                    // Opcional: Limpiar buffer de nombre con espacios para no dejar basura de la plantilla
+                    for (int i = 0; i < maxNameLen; i++) record[31 + i] = 0x20; 
+                    Array.Copy(nameBytes, 0, record, 31, nameBytes.Length);
 
-                    curBefore[curBefore.Length - 1] = (byte)nameBytes.Length;
-
-                    paylList.AddRange(curBefore);
-                    paylList.AddRange(nameBytes);
-                    paylList.AddRange(afterName);
+                    paylList.AddRange(record);
                 }
 
                 string finalHex = Convert.ToHexString(paylList.ToArray());
                 finalHexAll.Append(finalHex);
+
+                if (chunkStart + batchSize >= items.Count)
+                {
+                    // Es el último lote, añadir terminador de archivo E2 si no existe
+                    finalHexAll.Append("E2");
+                }
 
                 if (!enviarABalanza)
                 {
