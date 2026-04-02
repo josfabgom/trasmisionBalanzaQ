@@ -93,7 +93,7 @@ public class DigiService
                     Array.Copy(pluBcd, 0, recordHeader, 0, 4);
 
                     // CONTROL BYTE (Byte 5): 3D para Pesado (P), 41 para Unitario (N)
-                    bool isPesable = item.ItemType == "P" || item.RawType == 1;
+                    bool isPesable = item.ItemType == "P";
                     recordHeader[5] = isPesable ? (byte)0x3D : (byte)0x41;
 
                     // BYTE 16: 09 para Pesado (P), 05 para Unitario (N)
