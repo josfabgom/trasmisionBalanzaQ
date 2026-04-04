@@ -1,0 +1,185 @@
+@page "/etiquetas"
+@rendermode InteractiveServer
+@using System.IO
+@using BalanzaQ.Web.Models
+@using BalanzaQ.Web.Data
+@using Microsoft.EntityFrameworkCore
+@inject IJSRuntime JSRuntime
+@inject BalanzaDbContext DbContext
+@inject BalanzaQ.Web.Services.DigiService DigiService
+
+<PageTitle>Formatos de Etiqueta</PageTitle>
+
+<div class="container mt-4">
+    <h2>Gestión de Formatos de Etiqueta (F52)</h2>
+    <p class="text-muted">Aquí se muestran los archivos de configuración obtenidos de las balanzas (RD 52) o subidos manualmente para enviar (WR 52).</p>
+
+    @if (!string.IsNullOrEmpty(Mensaje))
+    {
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            @Mensaje
+            <button type="button" class="btn-close" @onclick="() => Mensaje = null"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-md-7">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-folder2-open me-2"></i> Archivos locales en carpeta Digi</span>
+                    <button class="btn btn-sm btn-outline-light" @onclick="CargarArchivos"><i class="bi bi-arrow-clockwise"></i></button>
+                </div>
+                <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+                    @if (archivos.Any())
+                    {
+                        <div class="list-group list-group-flush">
+                            @foreach (var file in archivos)
+                            {
+                                <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    <div>
+                                        <i class="bi bi-file-earmark-binary text-primary me-2"></i>
+                                        <strong>@file.Name</strong>
+                                        <br />
+                                        <small class="text-muted">Tamaño: @((file.Length / 1024.0).ToString("F2")) KB | Modificado: @file.LastWriteTime</small>
+                                    </div>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-success" @onclick="() => Descargar(file.FullName, file.Name)" title="Descargar al PC"><i class="bi bi-download"></i></button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(file.FullName)" title="Eliminar"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="py-3 text-center">No se han encontrado archivos .DAT de etiquetas todavía. Use el botón "Etiquetas" en la sección de Balanzas o suba uno.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-primary text-white"><i class="bi bi-cloud-upload me-2"></i> Operaciones de Transmisión</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">1. Seleccionar Balanza Destino</label>
+                        <select class="form-select" @bind="SelectedBalanzaIp">
+                            <option value="">-- Seleccionar --</option>
+                            @foreach (var b in balanzas)
+                            {
+                                <option value="@b.IpAddress">@b.Description (@b.IpAddress)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">2. Subir archivo F52 (Opcional)</label>
+                        <InputFile OnChange="UploadFile" class="form-control" />
+                        <small class="text-muted">El archivo se renombrará automáticamente según la IP seleccionada.</small>
+                    </div>
+
+                    <button class="btn btn-primary w-100 mb-2" @onclick="EnviarABalanza" disabled="@(string.IsNullOrEmpty(SelectedBalanzaIp) || !archivos.Any(f => f.Name.Contains(SelectedBalanzaIp)))">
+                        <i class="bi bi-send-fill me-2"></i> Enviar a Balanza Seleccionada
+                    </button>
+                </div>
+            </div>
+
+            <div class="alert alert-warning h-auto">
+                <h5><i class="bi bi-exclamation-triangle me-2"></i> Importante</h5>
+                <p class="small mb-0">Para enviar un formato de etiqueta, el nombre del archivo debe coincidir con la IP (Ej: <strong>SM192.168.1.100F52.DAT</strong>). El sistema renombrará el archivo que subas automáticamente si seleccionas una balanza.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<FileInfo> archivos = new();
+    private List<Balanza> balanzas = new();
+    private string SelectedBalanzaIp = "";
+    private string? Mensaje;
+
+    protected override async Task OnInitializedAsync()
+    {
+        balanzas = await DbContext.Balanzas.ToListAsync();
+        CargarArchivos();
+    }
+
+    private void CargarArchivos()
+    {
+        try
+        {
+            string digiPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Digi");
+            if (!Directory.Exists(digiPath)) Directory.CreateDirectory(digiPath);
+            
+            var dirInfo = new DirectoryInfo(digiPath);
+            archivos = dirInfo.GetFiles("*F52.DAT").OrderByDescending(f => f.LastWriteTime).ToList();
+        }
+        catch (Exception ex) 
+        { 
+            Mensaje = "Error al cargar archivos: " + ex.Message;
+        }
+        StateHasChanged();
+    }
+
+    private async Task UploadFile(InputFileChangeEventArgs e)
+    {
+        if (string.IsNullOrEmpty(SelectedBalanzaIp))
+        {
+            Mensaje = "Error: Primero seleccione una balanza para saber cómo renombrar el archivo.";
+            return;
+        }
+
+        try
+        {
+            var file = e.File;
+            string digiPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Digi");
+            string targetName = $"SM{SelectedBalanzaIp}F52.DAT";
+            string targetPath = Path.Combine(digiPath, targetName);
+
+            using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024); // 1MB
+            using var fs = new FileStream(targetPath, FileMode.Create);
+            await stream.CopyToAsync(fs);
+
+            Mensaje = $"Archivo subido y guardado como {targetName}";
+            CargarArchivos();
+        }
+        catch (Exception ex)
+        {
+            Mensaje = "Error al subir archivo: " + ex.Message;
+        }
+    }
+
+    private async Task EnviarABalanza()
+    {
+        Mensaje = $"Enviando configuración F52 a {SelectedBalanzaIp}...";
+        StateHasChanged();
+
+        var success = await DigiService.SendEtiquetasAsync(SelectedBalanzaIp);
+        if (success)
+        {
+            Mensaje = $"Configuración enviada exitosamente a {SelectedBalanzaIp}.";
+        }
+        else
+        {
+            Mensaje = $"Error al enviar configuración a {SelectedBalanzaIp}. Verifique que el archivo exista en la carpeta Digi.";
+        }
+    }
+
+    private async Task Descargar(string path, string fileName)
+    {
+        var bytes = await File.ReadAllBytesAsync(path);
+        var base64 = Convert.ToBase64String(bytes);
+        await JSRuntime.InvokeVoidAsync("downloadBinaryFile", fileName, "application/octet-stream", base64);
+    }
+
+    private void Eliminar(string path)
+    {
+        try
+        {
+            File.Delete(path);
+            CargarArchivos();
+        }
+        catch (Exception) { }
+    }
+}

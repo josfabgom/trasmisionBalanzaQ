@@ -39,7 +39,7 @@ public class DigiService
 
             if (!File.Exists(templatePath))
             {
-                string existingFile = Directory.GetFiles(_baseDir, "SM*F37.DAT").FirstOrDefault();
+                string? existingFile = Directory.GetFiles(_baseDir, "SM*F37.DAT").FirstOrDefault();
                 if (existingFile != null) File.Copy(existingFile, templatePath);
                 else return ("ERROR: Plantilla TEMPLATE.DAT no encontrada.", "");
             }
@@ -85,29 +85,30 @@ public class DigiService
                     byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
                     int currentLen = nameBytes.Length;
 
-                    // HEADER (5): Base(P=15, N=35) + (Len*2)
+                    // HEADER (5): Base(42) + Len
                     bool isPesable = item.ItemType == "P";
-                    // Fórmulas para SM300: Header[5] = 42 + len, ItemCode = PadLeft(5,0).PadRight(10,1)
                     recordHeader[5] = (byte)(0x2A + currentLen); 
+                    recordHeader[6] = isPesable ? (byte)0x7C : (byte)0x7D;
 
-                    // PRECIO (11-14)
+                    // TIPO DE ARTÍCULO (Byte 10) - Estándar 0x0D para ambos
+                    recordHeader[10] = 0x0D; 
+
+                    // PRECIO (11-14) - 4 bytes BCD (ej: 5000 -> 00 05 00 00 o similar conforme a balanza)
                     Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, recordHeader, 11, 4);
 
-                    // CONTROL Y SECCIÓN (16-17)
-                    // Control y Sección (Basado en el ABM y patrón SM300)
-                    recordHeader[16] = (item.ItemType == "N") ? (byte)0x01 : (byte)0x05; 
-                    recordHeader[17] = (byte)item.Section; 
+                    // TIPO Y SECCIÓN (16-17)
+                    recordHeader[16] = (byte)item.Section; 
+                    recordHeader[17] = (byte)(item.LabelFormat > 0 ? item.LabelFormat : 0x1E); 
 
-                    // ITEM CODE (18-22)
-                    string strCode = item.PluCode.ToString().PadLeft(5, '0').PadRight(10, '1');
-                    byte[] codeBcd = new byte[5];
-                    for (int j = 0; j < 5; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
-                    Array.Copy(codeBcd, 0, recordHeader, 18, 5);
+                    // ITEM CODE (18-23) - 6 bytes BCD
+                    string strCode = item.PluCode.ToString().PadLeft(5, '0').PadRight(12, '1');
+                    byte[] codeBcd = new byte[6];
+                    for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
+                    Array.Copy(codeBcd, 0, recordHeader, 18, 6);
 
-                    // SECCIÓN/FORMATO (24-27)
-                    byte[] secBcd = IntToBcdArray(item.Section, 2);
-                    Array.Copy(secBcd, 0, recordHeader, 24, 2);
-                    Array.Copy(secBcd, 0, recordHeader, 26, 2);
+                    // SECCIÓN (24-25) Y ETIQUETA (26-27)
+                    Array.Copy(IntToBcdArray(item.Section, 2), 0, recordHeader, 24, 2);
+                    Array.Copy(IntToBcdArray(item.LabelFormat > 0 ? item.LabelFormat : 30, 2), 0, recordHeader, 26, 2);
 
                     // LEN NOMBRE (Header final)
                     recordHeader[recordHeader.Length - 1] = (byte)currentLen;
@@ -153,7 +154,7 @@ public class DigiService
                     bItem.IsSyncronized = success;
                 }
 
-                if (!success) return ($"Error de balanza en lote {i}: Código {resCode}", hexPayload);
+                if (!success) return ($"Error en lote {i}: {GetDigiErrorMessage(resCode)}", hexPayload);
             }
 
             return ("Exito", finalLogAll.ToString());
@@ -209,7 +210,7 @@ public class DigiService
             }
 
             if (resCode == "MISSING" || resCode == "LOCKED") return "Error: No se recibió respuesta de la balanza o el archivo está bloqueado.";
-            return $"Error de balanza: Código {resCode}";
+            return $"Error: {GetDigiErrorMessage(resCode)}";
         }
         catch (Exception ex)
         {
@@ -252,6 +253,88 @@ public class DigiService
         return File.Exists(path) ? "LOCKED" : "MISSING";
     }
 
+    public async Task<bool> GetEtiquetasAsync(string ip)
+    {
+        try
+        {
+            string driverPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Digi", "digiwtcp.exe");
+            if (!File.Exists(driverPath)) return false;
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = driverPath,
+                Arguments = $"RD 52 {ip}",
+                WorkingDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Digi"),
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+
+            using var process = Process.Start(startInfo);
+            if (process == null) return false;
+            await process.WaitForExitAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> BorrarEtiquetasAsync(string ip)
+    {
+        try
+        {
+            string driverPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Digi", "digiwtcp.exe");
+            if (!File.Exists(driverPath)) return false;
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = driverPath,
+                Arguments = $"DELFI 52 {ip}",
+                WorkingDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Digi"),
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+
+            using var process = Process.Start(startInfo);
+            if (process == null) return false;
+            await process.WaitForExitAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> SendEtiquetasAsync(string ip)
+    {
+        try
+        {
+            string driverPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Digi", "digiwtcp.exe");
+            if (!File.Exists(driverPath)) return false;
+
+            // El driver espera que el archivo se llame SM<IP>F52.DAT en su directorio de trabajo
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = driverPath,
+                Arguments = $"WR 52 {ip}",
+                WorkingDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Digi"),
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+
+            using var process = Process.Start(startInfo);
+            if (process == null) return false;
+            await process.WaitForExitAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     private byte[] IntToBcdArray(int value, int numBytes)
     {
         string s = value.ToString().PadLeft(numBytes * 2, '0');
@@ -261,5 +344,27 @@ public class DigiService
             arr[i] = Convert.ToByte(s.Substring(i * 2, 2), 16);
         }
         return arr;
+    }
+
+    private string GetDigiErrorMessage(string resCode)
+    {
+        return resCode switch
+        {
+            "0" => "Transmisión exitosa",
+            "-1" => "Error de apertura en archivo de entrada o salida (OPEN_FILE_ERR)",
+            "-2" => "Error leyendo archivo de entrada (READ_FILE_ERR)",
+            "-3" => "Error de escritura a archivo de entrada o salida (WRIT_FILE_ERR)",
+            "-5" => "Error de conexión a balanza (NETWORK_OPEN_ERR)",
+            "-6" => "Error de recepción de datos desde la balanza (NETWORK_READ_ERR)",
+            "-7" => "Error de envío de datos a la balanza (NETWORK_WRIT_ERR)",
+            "-8" => "Error de lectura retornado por balanza (MACHINE_READ_ERR)",
+            "-9" => "Error de escritura retornado por balanza (MACHINE_WRIT_ERR)",
+            "-10" => "Error de 'no record' (sin registro) retornado por balanza (MACHINE_NOREC_ERR)",
+            "-11" => "Error de espacio retornado por balanza (MACHINE_SPACE_ERR)",
+            "-12" => "Error indefinido retornado por balanza (MACHINE_UNDEF_ERROR)",
+            "LOCKED" => "El archivo de resultados está bloqueado por otro proceso.",
+            "MISSING" => "No se encontró el archivo de resultado de la balanza.",
+            _ => $"Error desconocido: {resCode}"
+        };
     }
 }

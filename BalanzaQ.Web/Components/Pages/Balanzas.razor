@@ -87,8 +87,11 @@
                         </td>
                         <td><small>@(b.LastSyncDate?.ToString("g") ?? "Nunca")</small><br />@b.LastSyncStatus</td>
                         <td>
-                            <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(b)">Editar</button>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(b)">Eliminar</button>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(b)">Editar</button>
+                                <button class="btn btn-sm btn-outline-info" @onclick="() => ConsultarEtiquetas(b)" title="Obtener archivo F52">Etiquetas</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(b)">Eliminar</button>
+                            </div>
                         </td>
                     </tr>
                 }
@@ -129,6 +132,9 @@
     </div>
 }
 
+@inject BalanzaQ.Web.Services.DigiService DigiService
+@inject IJSRuntime JSRuntime
+
 @code {
     private List<Balanza> balanzas = new();
     private Balanza Model = new();
@@ -137,6 +143,23 @@
     
     private Dictionary<int, string> _pingStatus = new();
     private bool _isPinging = false;
+
+    private async Task ConsultarEtiquetas(Balanza b)
+    {
+        Mensaje = $"Consultando etiquetas de {b.IpAddress}...";
+        StateHasChanged();
+
+        var success = await DigiService.GetEtiquetasAsync(b.IpAddress);
+        if (success)
+        {
+            Mensaje = $"Archivo F52 de {b.IpAddress} obtenido correctamente en la carpeta Digi.";
+        }
+        else
+        {
+            Mensaje = $"Error al obtener etiquetas de {b.IpAddress}.";
+        }
+        StateHasChanged();
+    }
 
     protected override async Task OnInitializedAsync()
     {
