@@ -24,9 +24,9 @@
 
     <div class="row">
         <div class="col-md-7">
-            <div class="card mb-4 shadow-sm">
+            <div class="card mb-4 shadow-sm border-0 bg-white">
                 <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-folder2-open me-2"></i> Archivos locales en carpeta Digi</span>
+                    <span><i class="bi bi-folder2-open me-2"></i> Archivos locales (carpeta Digi)</span>
                     <button class="btn btn-sm btn-outline-light" @onclick="CargarArchivos"><i class="bi bi-arrow-clockwise"></i></button>
                 </div>
                 <div class="card-body" style="max-height: 500px; overflow-y: auto;">
@@ -35,16 +35,16 @@
                         <div class="list-group list-group-flush">
                             @foreach (var file in archivos)
                             {
-                                <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent">
                                     <div>
                                         <i class="bi bi-file-earmark-binary text-primary me-2"></i>
                                         <strong>@file.Name</strong>
                                         <br />
-                                        <small class="text-muted">Tamaño: @((file.Length / 1024.0).ToString("F2")) KB | Modificado: @file.LastWriteTime</small>
+                                        <small class="text-muted">@( (file.Length / 1024.0).ToString("F2") ) KB | @file.LastWriteTime</small>
                                     </div>
                                     <div class="btn-group">
-                                        <button class="btn btn-sm btn-outline-success" @onclick="() => Descargar(file.FullName, file.Name)" title="Descargar al PC"><i class="bi bi-download"></i></button>
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(file.FullName)" title="Eliminar"><i class="bi bi-trash"></i></button>
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => Visualizar(file.Name)"><i class="bi bi-pencil-square"></i> Editar</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(file.FullName)"><i class="bi bi-trash"></i></button>
                                     </div>
                                 </div>
                             }
@@ -52,18 +52,18 @@
                     }
                     else
                     {
-                        <p class="py-3 text-center">No se han encontrado archivos .DAT de etiquetas todavía. Use el botón "Etiquetas" en la sección de Balanzas o suba uno.</p>
+                        <p class="py-4 text-center text-muted">No se encontraron archivos .DAT</p>
                     }
                 </div>
             </div>
         </div>
 
         <div class="col-md-5">
-            <div class="card mb-4 shadow-sm">
-                <div class="card-header bg-primary text-white"><i class="bi bi-cloud-upload me-2"></i> Operaciones de Transmisión</div>
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-header bg-primary text-white"><i class="bi bi-upload me-2"></i> Cargar Archivo Nuevo</div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="form-label">1. Seleccionar Balanza Destino</label>
+                        <label class="form-label small">Balanza de destino (para renombrar)</label>
                         <select class="form-select" @bind="SelectedBalanzaIp">
                             <option value="">-- Seleccionar --</option>
                             @foreach (var b in balanzas)
@@ -72,32 +72,115 @@
                             }
                         </select>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">2. Subir archivo F52 (Opcional)</label>
-                        <InputFile OnChange="UploadFile" class="form-control" />
-                        <small class="text-muted">El archivo se renombrará automáticamente según la IP seleccionada.</small>
-                    </div>
-
-                    <button class="btn btn-primary w-100 mb-2" @onclick="EnviarABalanza" disabled="@(string.IsNullOrEmpty(SelectedBalanzaIp) || !archivos.Any(f => f.Name.Contains(SelectedBalanzaIp)))">
-                        <i class="bi bi-send-fill me-2"></i> Enviar a Balanza Seleccionada
+                    <InputFile OnChange="UploadFile" class="form-control" />
+                    <button class="btn btn-primary w-100 mt-3" @onclick="EnviarABalanza" disabled="@string.IsNullOrEmpty(SelectedBalanzaIp)">
+                        <i class="bi bi-send me-1"></i> Enviar a Balanza
                     </button>
                 </div>
-            </div>
-
-            <div class="alert alert-warning h-auto">
-                <h5><i class="bi bi-exclamation-triangle me-2"></i> Importante</h5>
-                <p class="small mb-0">Para enviar un formato de etiqueta, el nombre del archivo debe coincidir con la IP (Ej: <strong>SM192.168.1.100F52.DAT</strong>). El sistema renombrará el archivo que subas automáticamente si seleccionas una balanza.</p>
             </div>
         </div>
     </div>
 </div>
+
+@if (selectedFormat != null)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.6); z-index: 1060;">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">Diseño: @selectedFormat.FileName</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => selectedFormat = null"></button>
+                </div>
+                <div class="modal-body bg-light p-4">
+                    <div class="row">
+                        <div class="col-lg-8 border-end text-center overflow-auto" style="max-height: 70vh;">
+                            <div class="mx-auto bg-white shadow" style="width: @(selectedFormat.WidthLabel)px; height: @(selectedFormat.HeightLabel)px; position: relative; border: 1px solid #333;">
+                                @foreach (var field in selectedFormat.Fields)
+                                {
+                                    <div @onclick="() => { selectedField = field; StateHasChanged(); }"
+                                         class="p-1 @(selectedField == field ? "bg-primary text-white border-primary" : "bg-light text-dark border-secondary")"
+                                         style="position: absolute; left: @(field.X)px; top: @(field.Y)px; border: 2px dashed; cursor: pointer; font-size: 11px; white-space: nowrap; z-index: @(selectedField == field ? 10 : 1)">
+                                        @field.FieldName
+                                    </div>
+                                }
+                                @if (!selectedFormat.Fields.Any())
+                                {
+                                    <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                                        <em>Agregue campos desde el panel lateral</em>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-primary text-white">Propiedades</div>
+                                <div class="card-body">
+                                    @if (selectedField != null)
+                                    {
+                                        <div class="d-flex justify-content-between mb-3">
+                                            <strong>@selectedField.FieldName</strong>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => { selectedFormat.Fields.Remove(selectedField); selectedField = null; }"><i class="bi bi-trash"></i></button>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="small">Posición X</label>
+                                            <input type="number" class="form-control form-control-sm" @bind="selectedField.X" />
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="small">Posición Y</label>
+                                            <input type="number" class="form-control form-control-sm" @bind="selectedField.Y" />
+                                        </div>
+                                        <div class="btn-group w-100 mb-3">
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => { if(selectedField!=null) selectedField.X-=5; }">←</button>
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => { if(selectedField!=null) selectedField.X+=5; }">→</button>
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => { if(selectedField!=null) selectedField.Y-=5; }">↑</button>
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => { if(selectedField!=null) selectedField.Y+=5; }">↓</button>
+                                        </div>
+                                    }
+                                    <hr />
+                                    <label class="small fw-bold">Añadir Campo</label>
+                                    <div class="input-group input-group-sm mb-3">
+                                        <select class="form-select" @bind="newFieldId">
+                                            <option value="0">-- Seleccionar --</option>
+                                            <option value="1">Nombre</option>
+                                            <option value="2">Precio U</option>
+                                            <option value="3">Peso</option>
+                                            <option value="5">Barras</option>
+                                            <option value="7">Total</option>
+                                            <option value="15">Ingredientes</option>
+                                        </select>
+                                        <button class="btn btn-outline-primary" @onclick="AgregarManual"><i class="bi bi-plus"></i></button>
+                                    </div>
+                                    <hr />
+                                    <label class="small fw-bold">Diseño</label>
+                                    <div class="row g-1">
+                                        <div class="col">Width: <input type="number" class="form-control form-control-sm" @bind="selectedFormat.WidthLabel" /></div>
+                                        <div class="col">Height: <input type="number" class="form-control form-control-sm" @bind="selectedFormat.HeightLabel" /></div>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-white">
+                                    <button class="btn btn-success w-100" @onclick="GuardarLocal"><i class="bi bi-save me-1"></i> Guardar Local</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white">
+                    <button class="btn btn-primary me-auto" @onclick="SyncCurrent"><i class="bi bi-cloud-upload"></i> Enviar a Balanza</button>
+                    <button class="btn btn-secondary" @onclick="() => selectedFormat = null">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private List<FileInfo> archivos = new();
     private List<Balanza> balanzas = new();
     private string SelectedBalanzaIp = "";
     private string? Mensaje;
+    private LabelFormatInfo? selectedFormat;
+    private LabelField? selectedField;
+    private int newFieldId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -107,79 +190,67 @@
 
     private void CargarArchivos()
     {
-        try
-        {
-            string digiPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Digi");
-            if (!Directory.Exists(digiPath)) Directory.CreateDirectory(digiPath);
-            
-            var dirInfo = new DirectoryInfo(digiPath);
-            archivos = dirInfo.GetFiles("*F52.DAT").OrderByDescending(f => f.LastWriteTime).ToList();
-        }
-        catch (Exception ex) 
-        { 
-            Mensaje = "Error al cargar archivos: " + ex.Message;
-        }
-        StateHasChanged();
+        try {
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Digi");
+            if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+            archivos = new DirectoryInfo(path).GetFiles("*F52.DAT").ToList();
+        } catch { }
     }
 
     private async Task UploadFile(InputFileChangeEventArgs e)
     {
-        if (string.IsNullOrEmpty(SelectedBalanzaIp))
-        {
-            Mensaje = "Error: Primero seleccione una balanza para saber cómo renombrar el archivo.";
-            return;
-        }
-
-        try
-        {
-            var file = e.File;
-            string digiPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Digi");
-            string targetName = $"SM{SelectedBalanzaIp}F52.DAT";
-            string targetPath = Path.Combine(digiPath, targetName);
-
-            using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024); // 1MB
-            using var fs = new FileStream(targetPath, FileMode.Create);
-            await stream.CopyToAsync(fs);
-
-            Mensaje = $"Archivo subido y guardado como {targetName}";
+        if (string.IsNullOrEmpty(SelectedBalanzaIp)) return;
+        try {
+            string target = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Digi", $"SM{SelectedBalanzaIp}F52.DAT");
+            using var fs = new FileStream(target, FileMode.Create);
+            await e.File.OpenReadStream().CopyToAsync(fs);
             CargarArchivos();
-        }
-        catch (Exception ex)
-        {
-            Mensaje = "Error al subir archivo: " + ex.Message;
-        }
+            Mensaje = "Archivo cargado.";
+        } catch { }
+    }
+
+    private async Task Visualizar(string name)
+    {
+        selectedFormat = await DigiService.GetLabelFormatInfoAsync(name);
+        selectedField = null;
+    }
+
+    private async Task GuardarLocal()
+    {
+        if (selectedFormat == null) return;
+        await DigiService.SaveLabelFormatAsync(selectedFormat);
+        Mensaje = "Guardado localmente.";
+    }
+
+    private async Task SyncCurrent()
+    {
+        if (selectedFormat == null) return;
+        string ip = selectedFormat.FileName.Replace("SM", "").Replace("F52.DAT", "");
+        await DigiService.SendEtiquetasAsync(ip);
+        Mensaje = "Enviado a balanza.";
     }
 
     private async Task EnviarABalanza()
     {
-        Mensaje = $"Enviando configuración F52 a {SelectedBalanzaIp}...";
-        StateHasChanged();
-
-        var success = await DigiService.SendEtiquetasAsync(SelectedBalanzaIp);
-        if (success)
-        {
-            Mensaje = $"Configuración enviada exitosamente a {SelectedBalanzaIp}.";
-        }
-        else
-        {
-            Mensaje = $"Error al enviar configuración a {SelectedBalanzaIp}. Verifique que el archivo exista en la carpeta Digi.";
-        }
+        if (string.IsNullOrEmpty(SelectedBalanzaIp)) return;
+        await DigiService.SendEtiquetasAsync(SelectedBalanzaIp);
+        Mensaje = "Enviado a balanza.";
     }
 
-    private async Task Descargar(string path, string fileName)
+    private void AgregarManual()
     {
-        var bytes = await File.ReadAllBytesAsync(path);
-        var base64 = Convert.ToBase64String(bytes);
-        await JSRuntime.InvokeVoidAsync("downloadBinaryFile", fileName, "application/octet-stream", base64);
+        if (selectedFormat == null || newFieldId == 0) return;
+        var field = new LabelField { 
+            FieldId = newFieldId, 
+            FieldName = DigiService.GetOriginalFieldName(newFieldId),
+            X = 100, Y = 100, Font = 10 
+        };
+        selectedFormat.Fields.Add(field);
+        selectedField = field;
     }
 
     private void Eliminar(string path)
     {
-        try
-        {
-            File.Delete(path);
-            CargarArchivos();
-        }
-        catch (Exception) { }
+        try { File.Delete(path); CargarArchivos(); } catch { }
     }
 }

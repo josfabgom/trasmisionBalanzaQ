@@ -19,5 +19,25 @@ public class PluItem
     public DateTime? LastSyncDate { get; set; }
 
     public int ShelfLife { get; set; }
+    public int BarcodeFormat { get; set; } // Nuevo: permite elegir formato de barras
     public bool IsSyncronized { get; set; } = false;
+}
+
+public class LabelField
+{
+    public int FieldId { get; set; }
+    public string FieldName { get; set; } = string.Empty;
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public int Font { get; set; }
+}
+
+public class LabelFormatInfo
+{
+    public string FileName { get; set; } = string.Empty;
+    public int WidthLabel { get; set; } = 440;
+    public int HeightLabel { get; set; } = 550;
+    public List<LabelField> Fields { get; set; } = new();
 }

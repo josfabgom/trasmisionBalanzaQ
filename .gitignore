@@ -29,3 +29,7 @@ Portable/
 Digi/SM*F*.DAT
 **/*.DAT_2*
 ~$*.docx
+Published_BalanzaQ/
+*.exe
+!Digi/digiwtcp.exe
+!TEMPLATE.DAT

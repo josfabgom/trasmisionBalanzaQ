@@ -4,6 +4,7 @@ using BalanzaQ.Web.Models;
 using BalanzaQ.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
+using System.Collections.Concurrent;
 
 namespace BalanzaQ.Web.Services;
 
@@ -61,8 +62,8 @@ public class DigiService
             byte[] afterName = new byte[templateBytes.Length - (numNameStart + 3 + templateNameLen)];
             Array.Copy(templateBytes, numNameStart + 3 + templateNameLen, afterName, 0, afterName.Length);
 
-            // 2. Transmisión en LOTES (Evita Error -3 por saturación)
-            int batchSize = 100;
+            // 2. Transmisión MASIVA (Lotes de 1000)
+            int batchSize = 1000;
             StringBuilder finalLogAll = new StringBuilder();
 
             for (int i = 0; i < items.Count; i += batchSize)
@@ -93,23 +94,26 @@ public class DigiService
                     // TIPO DE ARTÍCULO (Byte 10) - Estándar 0x0D para ambos
                     recordHeader[10] = 0x0D; 
 
-                    // PRECIO (11-14) - 4 bytes BCD (ej: 5000 -> 00 05 00 00 o similar conforme a balanza)
-                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, recordHeader, 11, 4);
+                    // PRECIO (11-14) - 4 bytes BCD (ej: 22620 -> 02 26 20 00)
+                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 100), 4), 0, recordHeader, 11, 4);
 
                     // TIPO Y SECCIÓN (16-17)
+                    recordHeader[15] = (byte)(item.BarcodeFormat > 0 ? item.BarcodeFormat : 17); // Default 17 (0x11 hex)
                     recordHeader[16] = (byte)item.Section; 
-                    recordHeader[17] = (byte)(item.LabelFormat > 0 ? item.LabelFormat : 0x1E); 
+                    recordHeader[17] = (byte)(item.LabelFormat > 0 ? item.LabelFormat : 0x20); // Formato de Etiqueta (Default 32)
 
                     // ITEM CODE (18-23) - 6 bytes BCD
-                    string strCode = item.PluCode.ToString().PadLeft(5, '0').PadRight(12, '1');
+                    // PLU de 5 dígitos + sufijo de relleno 1111 para coincidir con trama buena
+                    string strCode = (item.PluCode.ToString().PadLeft(5, '0') + "1111111").Substring(0, 12);
                     byte[] codeBcd = new byte[6];
                     for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
                     Array.Copy(codeBcd, 0, recordHeader, 18, 6);
 
-                    // SECCIÓN (24-25) Y ETIQUETA (26-27)
+                    // SECCIÓN (24-25) Y FORMATO DE BARRAS (26-27)
                     Array.Copy(IntToBcdArray(item.Section, 2), 0, recordHeader, 24, 2);
-                    Array.Copy(IntToBcdArray(item.LabelFormat > 0 ? item.LabelFormat : 30, 2), 0, recordHeader, 26, 2);
-
+                    // Formato según Item o Default 17
+                    int barFormat = item.BarcodeFormat > 0 ? item.BarcodeFormat : 17;
+                    Array.Copy(IntToBcdArray(barFormat, 2), 0, recordHeader, 26, 2);
                     // LEN NOMBRE (Header final)
                     recordHeader[recordHeader.Length - 1] = (byte)currentLen;
 
@@ -149,9 +153,10 @@ public class DigiService
                 foreach (var bItem in batchItems)
                 {
                     bItem.LastSyncDate = DateTime.Now;
-                    bItem.LastSyncStatus = success ? "Sincronizado" : "Error";
-                    bItem.LastSyncError = success ? null : resCode;
+                    bItem.LastSyncStatus = success ? "Exitoso" : "Fallo";
+                    bItem.LastSyncError = GetDigiErrorMessage(resCode);
                     bItem.IsSyncronized = success;
+                    await AppendToLogAsync(balanza, bItem);
                 }
 
                 if (!success) return ($"Error en lote {i}: {GetDigiErrorMessage(resCode)}", hexPayload);
@@ -209,7 +214,6 @@ public class DigiService
                 return "Éxito: Operación completada.";
             }
 
-            if (resCode == "MISSING" || resCode == "LOCKED") return "Error: No se recibió respuesta de la balanza o el archivo está bloqueado.";
             return $"Error: {GetDigiErrorMessage(resCode)}";
         }
         catch (Exception ex)
@@ -251,6 +255,90 @@ public class DigiService
             }
         }
         return File.Exists(path) ? "LOCKED" : "MISSING";
+    }
+
+    public async Task<LabelFormatInfo?> GetLabelFormatInfoAsync(string fileName)
+    {
+        try
+        {
+            string digiFolder = Path.Combine(_baseDir, "Digi");
+            string path = Path.Combine(digiFolder, fileName);
+            if (!File.Exists(path)) return null;
+
+            byte[] data = await File.ReadAllBytesAsync(path);
+            if (data.Length < 32) return null;
+
+            var info = new LabelFormatInfo { FileName = fileName };
+
+            // Heurística Digi SM-100/300 F52
+            // Buscamos el registro de cabecera (Tipo 1)
+            // Generalmente los primeros bytes o un bloque que empieza con 00 00 00 01
+            for (int i = 0; i < data.Length - 16; i += 16)
+            {
+                if (data[i] == 0x00 && data[i+1] == 0x00 && data[i+2] == 0x00 && data[i+3] == 0x01)
+                {
+                    // Ancho y Alto en 0.1mm (Big Endian o parecido)
+                    // En el dump: 06 80 01 C0 01 60 03 00
+                    // 01 60 = 352 (35.2mm), 03 00 = 768 (76.8mm)
+                    info.WidthLabel = (data[i + 8] << 8) | data[i + 9];
+                    info.HeightLabel = (data[i + 10] << 8) | data[i + 11];
+                    if (info.WidthLabel <= 0) info.WidthLabel = 400; // Plan B
+                    if (info.HeightLabel <= 0) info.HeightLabel = 600;
+                    break;
+                }
+            }
+
+            // Escaner de campos (Bloques de 16 o 32 bytes)
+            // Mapeo común: 0x01: Nombre, 0x02: Precio U, 0x03: Peso, 0x05: Barras, 0x13: Fecha
+            // Nota: El mapeado varia, usaremos los IDs más frecuentes en SM-100
+            for (int i = 0; i < data.Length - 16; i += 16)
+            {
+                byte id = data[i + 7]; // Heurística: ID en offset 7 de bloques de 16
+                if (id > 0 && id < 50) 
+                {
+                    var field = new LabelField
+                    {
+                        FieldId = id,
+                        FieldName = GetFieldName(id),
+                        X = (data[i + 1] << 8) | data[i + 2],
+                        Y = (data[i + 3] << 8) | data[i + 4],
+                        Font = data[i + 5]
+                    };
+                    
+                    if (field.X > 0 && field.Y > 0 && field.X < 2000 && field.Y < 2000)
+                    {
+                        info.Fields.Add(field);
+                    }
+                }
+            }
+
+            return info;
+        }
+        catch { return null; }
+    }
+
+    private string GetFieldName(int id)
+    {
+        return id switch
+        {
+            1 => "Nombre del Producto",
+            2 => "Precio Unitario",
+            3 => "Peso",
+            4 => "Cantidad/Unidad",
+            5 => "Código de Barras",
+            6 => "Precio Total",
+            7 => "Precio Total",
+            8 => "Fecha de Empaque",
+            9 => "Fecha de Vencimiento",
+            10 => "Número de PLU",
+            13 => "Fecha/Hora",
+            14 => "Nombre de Tienda",
+            15 => "Ingredientes",
+            18 => "Logo/Imagen",
+            20 => "Mensaje Especial",
+            21 => "Mensaje Especial 2",
+            _ => $"Campo {id}"
+        };
     }
 
     public async Task<bool> GetEtiquetasAsync(string ip)
@@ -335,6 +423,52 @@ public class DigiService
         }
     }
 
+    public async Task<bool> SaveLabelFormatAsync(LabelFormatInfo info)
+    {
+        try
+        {
+            string digiFolder = Path.Combine(_baseDir, "Digi");
+            string path = Path.Combine(digiFolder, info.FileName);
+            if (!File.Exists(path)) return false;
+
+            byte[] data = await File.ReadAllBytesAsync(path);
+            
+            // Re-escribir cabecera (Tipo 1)
+            for (int i = 0; i < data.Length - 16; i += 16)
+            {
+                if (data[i] == 0x00 && data[i+1] == 0x00 && data[i+2] == 0x00 && data[i+3] == 0x01)
+                {
+                    data[i + 8] = (byte)(info.WidthLabel >> 8);
+                    data[i + 9] = (byte)(info.WidthLabel & 0xFF);
+                    data[i + 10] = (byte)(info.HeightLabel >> 8);
+                    data[i + 11] = (byte)(info.HeightLabel & 0xFF);
+                    break;
+                }
+            }
+
+            // Re-escribir campos (Mismo bloque de 8 bytes SM-100)
+            foreach (var field in info.Fields)
+            {
+                // Buscar el bloque original por ID (para no romper estructura)
+                for (int i = 0; i < data.Length - 16; i += 16)
+                {
+                    if (data[i + 1] == field.FieldId)
+                    {
+                        data[i + 2] = (byte)(field.X >> 8);
+                        data[i + 3] = (byte)(field.X & 0xFF);
+                        data[i + 5] = (byte)field.Y; // Y suele ser 1 byte en este layout
+                        data[i + 6] = (byte)field.Font;
+                        // Nota: El flag (byte 4 y 7) se mantiene original
+                    }
+                }
+            }
+
+            await File.WriteAllBytesAsync(path, data);
+            return true;
+        }
+        catch { return false; }
+    }
+
     private byte[] IntToBcdArray(int value, int numBytes)
     {
         string s = value.ToString().PadLeft(numBytes * 2, '0');
@@ -366,5 +500,21 @@ public class DigiService
             "MISSING" => "No se encontró el archivo de resultado de la balanza.",
             _ => $"Error desconocido: {resCode}"
         };
+    }
+
+    private async Task AppendToLogAsync(Balanza balanza, PluItem item)
+    {
+        try
+        {
+            string logsDir = Path.Combine(_baseDir, "logs");
+            if (!Directory.Exists(logsDir)) Directory.CreateDirectory(logsDir);
+
+            string fileName = $"sync_{balanza.IpAddress}_{DateTime.Now:yyyyMMdd}.log";
+            string logPath = Path.Combine(logsDir, fileName);
+
+            string line = $"[{DateTime.Now:HH:mm:ss}] PLU:{item.PluCode} - {item.Name} - {item.LastSyncStatus} - {item.LastSyncError ?? "OK"}";
+            await File.AppendAllLinesAsync(logPath, new[] { line });
+        }
+        catch { /* Ignorar errores de log para no bloquear flujo */ }
     }
 }
