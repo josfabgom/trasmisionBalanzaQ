@@ -1,0 +1,116 @@
+@using BalanzaQ.Web.Models
+@using System.Text
+
+<div class="label-container shadow" id="label-preview">
+    <!-- Header -->
+    <div class="label-name text-uppercase">@Item.Name</div>
+    
+    <!-- Middle Section -->
+    <div class="label-middle d-flex justify-content-between">
+        <div class="label-dates">
+            <div class="date-row">
+                <span class="date-label">ENYASADO</span>
+                <span class="date-val">@DateTime.Now.ToString("dd.MM.yy")</span>
+            </div>
+            <div class="date-row">
+                <span class="date-label">YENCIMIENTO</span>
+                <span class="date-val">@DateTime.Now.AddDays(Item.ShelfLife).ToString("dd.MM.yy")</span>
+            </div>
+        </div>
+        
+        <div class="label-values text-end">
+            <div class="price-kg">$@Item.Price.ToString("N1")/kg @(Item.ItemType == "P" ? "0.000kg" : "1 unit")</div>
+            <div class="plu-code">PLU @Item.PluCode.ToString().PadLeft(8, '0')</div>
+            <div class="balanza-id">BALANZA 101</div>
+            <div class="total-price">$@Item.Price.ToString("N2")</div>
+        </div>
+    </div>
+    
+    <!-- Barcode Section -->
+    <div class="barcode-container text-center">
+        <div class="barcode-bars">
+            <!-- Simulated Barcode Lines -->
+            @for(int i=0; i<30; i++) {
+                <div class="bar-line @(Random.Shared.Next(0,2) == 0 ? "black" : "white")" style="width: @(Random.Shared.Next(1,4))px"></div>
+            }
+        </div>
+        <div class="barcode-text">
+            <span>@GetBarcodeString()</span>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="label-footer mt-2">
+        <div class="text-center xsmall">- MUY FRESCO -</div>
+        <div class="text-center xsmall">GDOR. VIRASORO - CORRIENTES</div>
+    </div>
+</div>
+
+<style>
+    .label-container {
+        width: 330px; /* 55mm * factor */
+        height: 264px; /* 44mm * factor */
+        background: #fff;
+        padding: 12px;
+        border: 1px solid #000;
+        font-family: 'Courier New', Courier, monospace;
+        color: #000;
+        overflow: hidden;
+        position: relative;
+    }
+    .label-name {
+        font-size: 1.1rem;
+        font-weight: bold;
+        border-bottom: 2px solid #000;
+        margin-bottom: 5px;
+        text-align: center;
+    }
+    .date-row {
+        font-size: 0.7rem;
+        margin-bottom: 2px;
+    }
+    .date-label { font-weight: bold; margin-right: 5px; }
+    .price-kg { font-size: 0.8rem; font-weight: bold; }
+    .plu-code { font-size: 0.7rem; }
+    .balanza-id { font-size: 0.7rem; }
+    .total-price { font-size: 1.5rem; font-weight: 900; }
+    
+    .barcode-container { margin-top: 10px; border-top: 1px solid #eee; padding-top: 5px; }
+    .barcode-bars { height: 40px; display: flex; align-items: stretch; justify-content: center; margin-bottom: 2px; }
+    .bar-line { height: 100%; }
+    .bar-line.black { background: #000; }
+    .bar-line.white { background: #fff; }
+    .barcode-text { font-size: 0.9rem; letter-spacing: 2px; font-weight: bold; }
+    
+    .xsmall { font-size: 0.6rem; text-transform: uppercase; }
+</style>
+
+@code {
+    [Parameter] public PluItem Item { get; set; } = new();
+
+    private string GetBarcodeString()
+    {
+        // Simulamos la lógica de generación EAN13 (Bandera 20 + PLU 5 + Valor 5 + CD)
+        string prefix = "20"; 
+        string plu = Item.PluCode.ToString().PadLeft(5, '0');
+        string value = Item.ItemType == "P" ? "00750" : "00001"; // Simulación: 750g o 1 unidad
+        string body = (prefix + plu + value).Substring(0, 12);
+        
+        int checksum = CalculateEan13Checksum(body);
+        string full = body + checksum;
+        return $"{full[0]} {full.Substring(1, 6)} {full.Substring(7, 6)}";
+    }
+
+    private int CalculateEan13Checksum(string code)
+    {
+        if (code.Length != 12) return 0;
+        int sum = 0;
+        for (int i = 0; i < 12; i++)
+        {
+            int digit = int.Parse(code[i].ToString());
+            sum += (i % 2 == 0) ? digit : digit * 3;
+        }
+        int check = 10 - (sum % 10);
+        return check == 10 ? 0 : check;
+    }
+}

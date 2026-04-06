@@ -91,13 +91,13 @@
                         </td>
                         <td>@p.ShelfLife días</td>
                         <td>
-                            @if (p.LastSyncStatus == "Sincronizado")
+                            @if (p.LastSyncStatus == "Exitoso")
                             {
                                 <span class="badge bg-success" title="Sincronizado el @p.LastSyncDate?.ToString("g")"><i class="bi bi-check-circle"></i> OK</span>
                             }
-                            else if (p.LastSyncStatus == "Error")
+                            else if (p.LastSyncStatus == "Fallo")
                             {
-                                <span class="badge bg-danger" title="Error @p.LastSyncError el @p.LastSyncDate?.ToString("g")"><i class="bi bi-x-circle"></i> Error @p.LastSyncError</span>
+                                <span class="badge bg-danger" title="@p.LastSyncError (el @p.LastSyncDate?.ToString("g") )"><i class="bi bi-x-circle"></i> Fallo</span>
                             }
                             else
                             {
@@ -105,7 +105,12 @@
                             }
                         </td>
                         <td>
-                            <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(p)">Editar PLU</button>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(p)">Editar PLU</button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Previsualizar(p)" title="Simular diseño de etiqueta">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 }
@@ -193,6 +198,17 @@
                                 <option value="N">N - No Pesable (Unidad/pza)</option>
                             </select>
                         </div>
+
+                        <div class="col-md-6">
+                            <label>Formato de Etiqueta (F34/F52)</label>
+                            <input type="number" class="form-control" @bind="Model.LabelFormat" />
+                            <small class="text-muted">Default: 32. Para 55x44 pruebe 17 o 32.</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Formato de Barras (F37)</label>
+                            <input type="number" class="form-control" @bind="Model.BarcodeFormat" />
+                            <small class="text-muted">Default: 20 (EAN13: PLU + PESO).</small>
+                        </div>
                     </div>
                 </div>
                 <div class="alert alert-info border-0 rounded-0 mb-0 py-2">
@@ -202,6 +218,27 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
                     <button type="button" class="btn btn-primary" @onclick="Guardar">Aplicar Cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowPreviewModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content shadow-lg border-0" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header bg-dark text-white border-0 py-2">
+                    <h5 class="modal-title xsmall">Previsualización de Etiqueta (Simulador)</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => ShowPreviewModal = false"></button>
+                </div>
+                <div class="modal-body bg-light d-flex justify-content-center p-4">
+                    <LabelSimulator Item="PreviewModel" />
+                </div>
+                <div class="modal-footer bg-light border-0 py-2">
+                    <div class="xsmall text-muted me-auto">Nota: El diseño real depende de la configuración de la balanza.</div>
+                    <button type="button" class="btn btn-sm btn-secondary" @onclick="() => ShowPreviewModal = false">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -219,7 +256,9 @@
     private HashSet<int> seleccionados = new();
 
     private PluItem Model = new();
+    private PluItem PreviewModel = new();
     private bool ShowModal = false;
+    private bool ShowPreviewModal = false;
     private bool simulateMode = false;
     private string? lastGeneratedHex;
     private string? hexBueno;
@@ -396,9 +435,17 @@
             ShortName = p.ShortName,
             Price = p.Price,
             ShelfLife = p.ShelfLife,
-            ItemType = p.ItemType
+            ItemType = p.ItemType,
+            LabelFormat = p.LabelFormat,
+            BarcodeFormat = p.BarcodeFormat
         };
         ShowModal = true;
+    }
+
+    private void Previsualizar(PluItem p)
+    {
+        PreviewModel = p;
+        ShowPreviewModal = true;
     }
 
     private async Task Guardar()
@@ -411,6 +458,8 @@
             dbItem.Price = Model.Price;
             dbItem.ShelfLife = Model.ShelfLife;
             dbItem.ItemType = Model.ItemType;
+            dbItem.LabelFormat = Model.LabelFormat;
+            dbItem.BarcodeFormat = Model.BarcodeFormat;
             await DbContext.SaveChangesAsync();
             
             Mensaje = $"Artículo {dbItem.PluCode} actualizado correctamente.";

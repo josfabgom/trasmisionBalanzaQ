@@ -16,15 +16,22 @@ public class DigiService
     public DigiService(IConfiguration config)
     {
         _config = config;
-        // Si el directorio actual tiene TEMPLATE.DAT, asume que es la raíz (portable)
-        string currentDir = Directory.GetCurrentDirectory();
-        if (File.Exists(Path.Combine(currentDir, "TEMPLATE.DAT")) || Directory.Exists(Path.Combine(currentDir, "Digi")))
+        // Lógica para encontrar la raíz física del ejecutable (necesaria para SingleFile)
+        var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
+        string exePath = currentProcess.MainModule?.FileName ?? AppContext.BaseDirectory;
+        string exeDir = Path.GetDirectoryName(exePath) ?? AppContext.BaseDirectory;
+        
+        if (Directory.Exists(Path.Combine(exeDir, "Digi")))
         {
-            _baseDir = currentDir;
+            _baseDir = exeDir;
+        }
+        else if (Directory.Exists(Path.Combine(exeDir, "..", "Digi")))
+        {
+            _baseDir = Path.GetFullPath(Path.Combine(exeDir, ".."));
         }
         else
         {
-            _baseDir = Path.GetFullPath(Path.Combine(currentDir, "..")); // Modo desarrollo
+            _baseDir = exeDir; // Fallback
         }
     }
 
@@ -94,12 +101,13 @@ public class DigiService
                     // TIPO DE ARTÍCULO (Byte 10) - Estándar 0x0D para ambos
                     recordHeader[10] = 0x0D; 
 
-                    // PRECIO (11-14) - 4 bytes BCD (ej: 22620 -> 02 26 20 00)
-                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 100), 4), 0, recordHeader, 11, 4);
+                    // PRECIO (11-14) - 4 bytes BCD (ej: 22620 -> 22 62 00 00)
+                    // Analizando el Hex Bueno: 22620 * 1000 = 22620000 -> BCD: 22 62 00 00
+                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 1000), 4), 0, recordHeader, 11, 4);
 
                     // TIPO Y SECCIÓN (16-17)
                     recordHeader[15] = (byte)(item.BarcodeFormat > 0 ? item.BarcodeFormat : 17); // Default 17 (0x11 hex)
-                    recordHeader[16] = (byte)item.Section; 
+                    recordHeader[16] = (byte)item.Group; 
                     recordHeader[17] = (byte)(item.LabelFormat > 0 ? item.LabelFormat : 0x20); // Formato de Etiqueta (Default 32)
 
                     // ITEM CODE (18-23) - 6 bytes BCD
@@ -147,7 +155,14 @@ public class DigiService
 
                 using var process = Process.Start(psi);
                 await process!.WaitForExitAsync();
-                string resCode = await ReadResultWithRetry(resultPath);
+                
+                string resultLine = await ReadResultWithRetry(resultPath);
+                string resCode = resultLine; 
+                
+                // Extraer código del formato IP:Código (ej: 192.168.1.7:-5)
+                int lastColon = resultLine.LastIndexOf(':');
+                if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
+
                 bool success = (resCode == "0");
 
                 foreach (var bItem in batchItems)
@@ -159,7 +174,7 @@ public class DigiService
                     await AppendToLogAsync(balanza, bItem);
                 }
 
-                if (!success) return ($"Error en lote {i}: {GetDigiErrorMessage(resCode)}", hexPayload);
+                if (!success) return ($"Error en lote {i}: {GetDigiErrorMessage(resCode)} ({resultLine})", hexPayload);
             }
 
             return ("Exito", finalLogAll.ToString());
@@ -197,7 +212,11 @@ public class DigiService
             using var process = Process.Start(psi);
             await process!.WaitForExitAsync();
 
-            string resCode = await ReadResultWithRetry(resultPath);
+            string resultLine = await ReadResultWithRetry(resultPath);
+            string resCode = resultLine;
+            int lastColon = resultLine.LastIndexOf(':');
+            if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
+
             if (resCode == "0")
             {
                 if (command == "RD")
@@ -214,7 +233,7 @@ public class DigiService
                 return "Éxito: Operación completada.";
             }
 
-            return $"Error: {GetDigiErrorMessage(resCode)}";
+            return $"Error: {GetDigiErrorMessage(resCode)} ({resultLine})";
         }
         catch (Exception ex)
         {
@@ -242,16 +261,19 @@ public class DigiService
 
     private async Task<string> ReadResultWithRetry(string path)
     {
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 15; i++)
         {
             try
             {
-                if (File.Exists(path)) return (await File.ReadAllTextAsync(path)).Trim();
-                await Task.Delay(100); // Esperar a que el archivo aparezca
+                if (File.Exists(path)) {
+                   string content = (await File.ReadAllTextAsync(path)).Trim();
+                   if (!string.IsNullOrEmpty(content)) return content;
+                }
+                await Task.Delay(200); 
             }
             catch (IOException)
             {
-                await Task.Delay(200); // Esperar si está bloqueado
+                await Task.Delay(300); 
             }
         }
         return File.Exists(path) ? "LOCKED" : "MISSING";
@@ -299,7 +321,7 @@ public class DigiService
                     var field = new LabelField
                     {
                         FieldId = id,
-                        FieldName = GetFieldName(id),
+                        FieldName = GetOriginalFieldName(id),
                         X = (data[i + 1] << 8) | data[i + 2],
                         Y = (data[i + 3] << 8) | data[i + 4],
                         Font = data[i + 5]
@@ -317,7 +339,7 @@ public class DigiService
         catch { return null; }
     }
 
-    private string GetFieldName(int id)
+    public string GetOriginalFieldName(int id)
     {
         return id switch
         {
@@ -446,19 +468,21 @@ public class DigiService
                 }
             }
 
-            // Re-escribir campos (Mismo bloque de 8 bytes SM-100)
+            // Re-escribir campos (Bloques de 16 bytes SM-100/300)
             foreach (var field in info.Fields)
             {
-                // Buscar el bloque original por ID (para no romper estructura)
+                // Buscar el bloque original por ID (Byte 7)
                 for (int i = 0; i < data.Length - 16; i += 16)
                 {
-                    if (data[i + 1] == field.FieldId)
+                    if (data[i + 7] == field.FieldId)
                     {
-                        data[i + 2] = (byte)(field.X >> 8);
-                        data[i + 3] = (byte)(field.X & 0xFF);
-                        data[i + 5] = (byte)field.Y; // Y suele ser 1 byte en este layout
-                        data[i + 6] = (byte)field.Font;
-                        // Nota: El flag (byte 4 y 7) se mantiene original
+                        // Sincronizado con GetLabelFormatInfoAsync
+                        data[i + 1] = (byte)(field.X >> 8);
+                        data[i + 2] = (byte)(field.X & 0xFF);
+                        data[i + 3] = (byte)(field.Y >> 8);
+                        data[i + 4] = (byte)(field.Y & 0xFF);
+                        data[i + 5] = (byte)field.Font;
+                        // Nota: El flag (byte 0 y 6) se mantiene original
                     }
                 }
             }
