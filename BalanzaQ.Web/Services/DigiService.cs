@@ -101,9 +101,9 @@ public class DigiService
                     // TIPO DE ARTÍCULO (Byte 10) - Estándar 0x0D para ambos
                     recordHeader[10] = 0x0D; 
 
-                    // PRECIO (11-14) - 4 bytes BCD (ej: 22620 -> 22 62 00 00)
-                    // Analizando el Hex Bueno: 22620 * 1000 = 22620000 -> BCD: 22 62 00 00
-                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 1000), 4), 0, recordHeader, 11, 4);
+                    // PRECIO (11-14) - 4 bytes BCD (ej: 6000 -> 00 06 00 00)
+                    // Para SM-300 con 1 decimal mostrado, el multiplicador 10 es el correcto.
+                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, recordHeader, 11, 4);
 
                     // TIPO Y SECCIÓN (16-17)
                     recordHeader[15] = (byte)(item.BarcodeFormat > 0 ? item.BarcodeFormat : 17); // Default 17 (0x11 hex)
