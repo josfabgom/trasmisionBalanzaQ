@@ -106,22 +106,28 @@ public class DigiService
                     Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, recordHeader, 11, 4);
 
                     // TIPO Y SECCIÓN (16-17)
-                    recordHeader[15] = (byte)(item.BarcodeFormat > 0 ? item.BarcodeFormat : 17); // Default 17 (0x11 hex)
-                    recordHeader[16] = (byte)item.Group; 
-                    recordHeader[17] = (byte)(item.LabelFormat > 0 ? item.LabelFormat : 0x20); // Formato de Etiqueta (Default 32)
+                    // CALIBRACIÓN DEFINITIVA: 
+                    // 1. Flag 20 (Byte 17 = 0x20) -> Genera los primeros dos dígitos '20'.
+                    // 2. PLU de 5 dígitos -> Completa hasta el dígito 7 (ej: 2010044).
+                    // 3. Peso de 5 dígitos -> Empieza en la posición 6 del Item Code (Dígitos 8-12 del EAN).
+                    int selectedFormat = 17;
+                    recordHeader[15] = (byte)selectedFormat; 
+                    recordHeader[16] = 0x00; 
+                    recordHeader[17] = 0x20; // FLAG 20 (Para que el código empiece con 20...)
 
                     // ITEM CODE (18-23) - 6 bytes BCD
-                    // PLU de 5 dígitos + sufijo de relleno 1111 para coincidir con trama buena
-                    string strCode = (item.PluCode.ToString().PadLeft(5, '0') + "1111111").Substring(0, 12);
+                    // PLU 5 dígitos + 5 ceros de peso + 2 ceros de relleno = 12 dígitos.
+                    string pluPart = item.PluCode.ToString().PadLeft(5, '0');
+                    string fillerPart = isPesable ? "00000" : "00001";
+                    string strCode = (pluPart + fillerPart + "00").Substring(0, 12);
                     byte[] codeBcd = new byte[6];
                     for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
                     Array.Copy(codeBcd, 0, recordHeader, 18, 6);
 
-                    // SECCIÓN (24-25) Y FORMATO DE BARRAS (26-27)
-                    Array.Copy(IntToBcdArray(item.Section, 2), 0, recordHeader, 24, 2);
-                    // Formato según Item o Default 17
-                    int barFormat = item.BarcodeFormat > 0 ? item.BarcodeFormat : 17;
-                    Array.Copy(IntToBcdArray(barFormat, 2), 0, recordHeader, 26, 2);
+                    // SECCIÓN (24-25) Y FORMATO DE ETIQUETA (26-27)
+                    // Mantenemos 30 y 30 para estabilidad absoluta del diseño
+                    Array.Copy(IntToBcdArray(30, 2), 0, recordHeader, 24, 2);
+                    Array.Copy(IntToBcdArray(30, 2), 0, recordHeader, 26, 2);
                     // LEN NOMBRE (Header final)
                     recordHeader[recordHeader.Length - 1] = (byte)currentLen;
 
