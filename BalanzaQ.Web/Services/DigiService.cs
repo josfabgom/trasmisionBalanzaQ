@@ -11,11 +11,13 @@ namespace BalanzaQ.Web.Services;
 public class DigiService
 {
     private readonly IConfiguration _config;
+    private readonly BalanzaDbContext _db;
     private readonly string _baseDir;
 
-    public DigiService(IConfiguration config)
+    public DigiService(IConfiguration config, BalanzaDbContext db)
     {
         _config = config;
+        _db = db;
         // Lógica para encontrar la raíz física del ejecutable (necesaria para SingleFile)
         var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
         string exePath = currentProcess.MainModule?.FileName ?? AppContext.BaseDirectory;
@@ -35,7 +37,7 @@ public class DigiService
         }
     }
 
-    public async Task<(string Message, string HexPayload)> SyncBalanzaAsync(Balanza balanza, List<PluItem> items, bool enviarABalanza = true, Action<int, int>? onProgress = null)
+    public async Task<(string Message, string HexPayload)> SyncBalanzaAsync(Balanza balanza, List<PluItem> items, bool enviarABalanza = true, Action<int, int>? onProgress = null, string batchId = "")
     {
         try
         {
@@ -177,6 +179,19 @@ public class DigiService
                     bItem.LastSyncStatus = success ? "Exitoso" : "Fallo";
                     bItem.LastSyncError = GetDigiErrorMessage(resCode);
                     bItem.IsSyncronized = success;
+
+                    // Auditoría Persistente
+                    _db.SyncLogs.Add(new SyncLog
+                    {
+                        BalanzaIp = balanza.IpAddress,
+                        PluCode = bItem.PluCode,
+                        ProductName = bItem.Name,
+                        Status = bItem.LastSyncStatus,
+                        ErrorMessage = bItem.LastSyncError,
+                        BatchId = batchId,
+                        Date = DateTime.Now
+                    });
+
                     await AppendToLogAsync(balanza, bItem);
                 }
 

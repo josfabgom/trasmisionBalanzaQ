@@ -49,3 +49,59 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+/* Custom Utility Classes */
+.bg-primary-soft {
+    background-color: rgba(27, 110, 194, 0.08) !important;
+}
+.bg-success-soft {
+    background-color: rgba(40, 167, 69, 0.08) !important;
+}
+.bg-danger-soft {
+    background-color: rgba(220, 53, 69, 0.08) !important;
+}
+
+.shadow-premium {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spin-slow {
+    display: inline-block;
+    animation: spin 3s linear infinite;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.anim-fade-in {
+    animation: fadeIn 0.4s ease-out;
+}
+
+.nav-link {
+    transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+    background-color: rgba(255,255,255,0.1);
+    transform: translateX(4px);
+}
+
+.card {
+    border: 1px solid rgba(0,0,0,0.05) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.navbar-brand {
+    transition: transform 0.2s;
+}
+
+.navbar-brand:hover {
+    transform: scale(1.02);
+}

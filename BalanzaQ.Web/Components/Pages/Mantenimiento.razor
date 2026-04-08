@@ -141,6 +141,44 @@
             </div>
         </div>
     }
+
+    <div class="row g-4 mt-2 mb-5">
+        <div class="col-md-12">
+            <div class="card shadow-sm border-primary anim-fade-in">
+                <div class="card-header bg-primary text-white fw-bold">
+                    <i class="bi bi-gear-fill me-2"></i> Configuración de Importación de Datos
+                </div>
+                <div class="card-body p-4">
+                    <div class="row align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Separador de Columnas (.DAT)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-distribute-vertical"></i></span>
+                                <input type="text" class="form-control border-primary" @bind="separatorValue" maxlength="5" placeholder="Ej: ; o , o |" />
+                            </div>
+                            <small class="text-muted">Actual: <span class="badge bg-light text-dark">@(string.IsNullOrEmpty(separatorValue) ? "Vacío" : separatorValue)</span></small>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary w-100" @onclick="GuardarConfiguracion">
+                                <i class="bi bi-save me-2"></i> Guardar Configuración
+                            </button>
+                        </div>
+                        <div class="col-md-5">
+                            @if (!string.IsNullOrEmpty(configMessage))
+                            {
+                                <div class="alert alert-success py-2 mb-0 animate__animated animate__fadeIn">
+                                    <i class="bi bi-check-circle me-2"></i> @configMessage
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-light xsmall text-muted">
+                    Nota: Este separador se aplicará tanto a la importación manual como a la sincronización local automática.
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @code {
@@ -149,11 +187,18 @@
     private bool _isSyncing = false;
     private string? _maintenanceResult;
     private string _maintenanceClass = "alert-info";
+    
+    // Configuración
+    private string separatorValue = ";";
+    private string? configMessage;
 
     protected override async Task OnInitializedAsync()
     {
         balanzas = await DbContext.Balanzas.ToListAsync();
         balanzaActual = balanzas.FirstOrDefault(b => b.IsEnabled);
+        
+        var setting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "ImportSeparator");
+        separatorValue = setting?.Value ?? ";";
     }
 
     private void SeleccionarBalanza(Balanza b)
@@ -216,5 +261,26 @@
         string fileName = $"SM{balanzaActual.IpAddress}F37_READ.DAT";
         // Simulamos la descarga. En un entorno real se serviría el archivo.
         await JS.InvokeVoidAsync("alert", "Archivo de respaldo listo en el servidor como: " + fileName);
+    }
+    private async Task GuardarConfiguracion()
+    {
+        var setting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "ImportSeparator");
+        if (setting == null)
+        {
+            setting = new AppSetting { Key = "ImportSeparator", Value = separatorValue };
+            DbContext.AppSettings.Add(setting);
+        }
+        else
+        {
+            setting.Value = separatorValue;
+        }
+        
+        await DbContext.SaveChangesAsync();
+        configMessage = "Configuración guardada correctamente.";
+        StateHasChanged();
+        
+        await Task.Delay(3000);
+        configMessage = null;
+        StateHasChanged();
     }
 }

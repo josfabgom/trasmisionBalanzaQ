@@ -1,7 +1,8 @@
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="">
-            <i class="bi bi-box-seam me-2"></i> BalanzaQ
+            <img src="logo.png" alt="Logo" style="height: 32px; border-radius: 6px;" class="me-2 shadow-sm" />
+            <span class="fw-bold" style="letter-spacing: 0.5px;">Balanza<span class="text-info">Q</span></span>
         </a>
     </div>
 </div>
@@ -18,7 +19,7 @@
 
         <div class="nav-item px-3 mb-2">
             <NavLink class="nav-link fs-6 btn-outline-primary rounded transition-all" href="articulos">
-                <i class="bi bi-box me-3 fs-5" aria-hidden="true"></i> ABM Artículos
+                <i class="bi bi-tag-fill me-3 fs-5" aria-hidden="true"></i> Artículos (PLU)
             </NavLink>
         </div>
 
@@ -30,14 +31,33 @@
 
         <div class="nav-item px-3 mb-2">
             <NavLink class="nav-link fs-6 btn-outline-primary rounded transition-all" href="balanzas">
-                <i class="bi bi-pc-display me-3 fs-5" aria-hidden="true"></i> Conf. Balanzas
+                <i class="bi bi-pc-display-horizontal me-3 fs-5" aria-hidden="true"></i> Balanzas Digi
             </NavLink>
         </div>
 
         <div class="nav-item px-3 mb-2">
             <NavLink class="nav-link fs-6 btn-outline-primary rounded transition-all" href="etiquetas">
-                <i class="bi bi-file-earmark-bar-graph me-3 fs-5" aria-hidden="true"></i> Formatos Etiquetas
+                <i class="bi bi-layout-text-window-reverse me-3 fs-5" aria-hidden="true"></i> Formatos Etiqueta
             </NavLink>
+        </div>
+
+        <div class="nav-item px-3 mb-2">
+            <NavLink class="nav-link fs-6 btn-outline-primary rounded transition-all" href="auditoria">
+                <i class="bi bi-shield-check-fill me-3 fs-5" aria-hidden="true"></i> Auditoría Envío
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3 mt-5 border-top pt-3">
+            <button class="btn btn-link nav-link text-danger w-100 text-start" @onclick="CerrarSistema">
+                <i class="bi bi-power me-3 fs-5"></i> Cerrar Sistema
+            </button>
         </div>
     </nav>
 </div>
+
+@code {
+    private void CerrarSistema()
+    {
+        Environment.Exit(0);
+    }
+}

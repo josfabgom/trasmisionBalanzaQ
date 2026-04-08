@@ -137,7 +137,7 @@
         {
             var allowedSize = 10 * 1024 * 1024; // max 10MB para data.dat
             using var stream = e.File.OpenReadStream(allowedSize);
-            int importados = await ImportService.ImportarDatosAsync(stream);
+            int importados = await ImportService.ImportarDatosAsync(stream, null, e.File.Name);
             Mensaje = $"Importación exitosa. Se procesaron/actualizaron {importados} artículos del archivo {e.File.Name}.";
             ClaseAlerta = "alert-success";
             await CargarEstadisticas();
@@ -165,7 +165,7 @@
             if (File.Exists(path))
             {
                 using var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
-                int importados = await ImportService.ImportarDatosAsync(fs);
+                int importados = await ImportService.ImportarDatosAsync(fs, null, "data.dat (Sync Local)");
                 Mensaje = $"Sincronización local exitosa. Se actualizaron {importados} artículos desde el archivo data.dat de la raíz.";
                 ClaseAlerta = "alert-success";
                 await CargarEstadisticas();
@@ -212,6 +212,8 @@
             _totalSteps = balanzas.Count * batchesPerBalanza;
 
             int exitos = 0;
+            string batchId = Guid.NewGuid().ToString().Substring(0, 8).ToUpper();
+
             for (int bIdx = 0; bIdx < balanzas.Count; bIdx++)
             {
                 var b = balanzas[bIdx];
@@ -224,7 +226,7 @@
                     _progressPercent = (int)((double)_currentStep / _totalSteps * 100);
                     _statusMessage = $"Balanza {b.IpAddress}: {current}/{total} PLUs";
                     StateHasChanged();
-                });
+                }, batchId);
 
                 b.LastSyncDate = DateTime.Now;
                 b.LastSyncStatus = res.Message;
