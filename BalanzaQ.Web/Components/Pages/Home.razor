@@ -77,6 +77,25 @@
                         </button>
                         <a href="/balanzas" class="btn btn-outline-primary w-100">Configuración</a>
                     </div>
+
+                    @if (_isSyncing)
+                    {
+                        <div class="mt-4 p-3 border rounded bg-light shadow-sm animate__animated animate__fadeIn">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small class="text-muted fw-bold">@_statusMessage</small>
+                                <small class="text-primary fw-bold">@_progressPercent%</small>
+                            </div>
+                            <div class="progress" style="height: 12px; border-radius: 6px; overflow: hidden;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-gradient" 
+                                     role="progressbar" 
+                                     style="width: @_progressPercent%; background: linear-gradient(90deg, #0d6efd, #0dcaf0);" 
+                                     aria-valuenow="@_progressPercent" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <div class="text-center mt-2">
+                                <small class="text-muted">Procesando @_currentStep de @_totalSteps etapas...</small>
+                            </div>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -91,6 +110,11 @@
     private bool _isImporting = false;
     private bool _isSyncing = false;
     
+    private string? _statusMessage;
+    private int _progressPercent = 0;
+    private int _currentStep = 0;
+    private int _totalSteps = 0;
+
     private string? Mensaje;
     private string ClaseAlerta = "alert-info";
 
@@ -166,6 +190,9 @@
     private async Task SincronizarTodas(bool enviarABalanza)
     {
         _isSyncing = true;
+        _progressPercent = 0;
+        _currentStep = 0;
+        
         try
         {
             var balanzas = await DbContext.Balanzas.Where(b => b.IsEnabled).ToListAsync();
@@ -178,10 +205,27 @@
                 return;
             }
 
+            // Calculo aproximado de pasos totales (balanzas * lotes de 1000)
+            int batchSize = 1000;
+            int batchesPerBalanza = (int)Math.Ceiling((double)articulos.Count / batchSize);
+            if (batchesPerBalanza == 0) batchesPerBalanza = 1;
+            _totalSteps = balanzas.Count * batchesPerBalanza;
+
             int exitos = 0;
-            foreach(var b in balanzas)
+            for (int bIdx = 0; bIdx < balanzas.Count; bIdx++)
             {
-                var res = await DigiService.SyncBalanzaAsync(b, articulos, enviarABalanza);
+                var b = balanzas[bIdx];
+                _statusMessage = $"Sincronizando {b.IpAddress}...";
+                StateHasChanged();
+
+                var res = await DigiService.SyncBalanzaAsync(b, articulos, enviarABalanza, (current, total) => {
+                    // Este callback se llama en cada lote
+                    _currentStep++;
+                    _progressPercent = (int)((double)_currentStep / _totalSteps * 100);
+                    _statusMessage = $"Balanza {b.IpAddress}: {current}/{total} PLUs";
+                    StateHasChanged();
+                });
+
                 b.LastSyncDate = DateTime.Now;
                 b.LastSyncStatus = res.Message;
                 

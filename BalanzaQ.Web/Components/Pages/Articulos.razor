@@ -85,11 +85,11 @@
                         <td class="text-success fw-bold">@p.Price.ToString("N2")</td>
                         <td>@p.Group</td>
                         <td>@p.Section</td>
+                        <td>@p.ShelfLife días</td>
                         <td>
                             @if (p.ItemType == "P") { <span class="badge bg-primary">Pesado</span> }
                             else { <span class="badge bg-info">Unidad</span> }
                         </td>
-                        <td>@p.ShelfLife días</td>
                         <td>
                             @if (p.LastSyncStatus == "Exitoso")
                             {

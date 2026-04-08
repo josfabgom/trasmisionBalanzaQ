@@ -35,7 +35,7 @@ public class DigiService
         }
     }
 
-    public async Task<(string Message, string HexPayload)> SyncBalanzaAsync(Balanza balanza, List<PluItem> items, bool enviarABalanza = true)
+    public async Task<(string Message, string HexPayload)> SyncBalanzaAsync(Balanza balanza, List<PluItem> items, bool enviarABalanza = true, Action<int, int>? onProgress = null)
     {
         try
         {
@@ -181,6 +181,8 @@ public class DigiService
                 }
 
                 if (!success) return ($"Error en lote {i}: {GetDigiErrorMessage(resCode)} ({resultLine})", hexPayload);
+                
+                onProgress?.Invoke(Math.Min(i + batchSize, items.Count), items.Count);
             }
 
             return ("Exito", finalLogAll.ToString());
