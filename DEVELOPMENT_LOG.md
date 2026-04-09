@@ -40,8 +40,10 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-09 (v3.3.4)
+*   **Fix Definitivo Pre-empaque (Modo Automático):** Implementación de un inyector dinámico de "Peso Fijo" en la cola del registro (`afterName`). El programa ahora detecta los bloques secundarios de la SM-300 y fuerza la cantidad a 1. Esto permite que la balanza imprima etiquetas sin peso real en modo automático sin que el código de barras salga en cero.
+
 ### 🗓️ 2026-04-09 (v3.3.3)
-*   **Regreso a Estructura Barcode Verificada:** Ante los errores de desplazamiento, se restauró la lógica de la v3.1.0 (`PLU 5 + Peso 5 + Relleno 2`). Esta es la única estructura que demostró centrar el PLU correctamente en el pasado, ahora con el fix de Cantidad 1 para modo unidad.
 
 ### 🗓️ 2026-04-09 (v3.3.2)
 

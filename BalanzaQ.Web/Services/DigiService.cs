@@ -142,7 +142,22 @@ public class DigiService
                     StringBuilder rowHex = new StringBuilder();
                     rowHex.Append(Convert.ToHexString(record, 0, numNameStart + 3)); // Parte antes del nombre
                     rowHex.Append(Convert.ToHexString(nameBytes));                  // El nombre real
-                    rowHex.Append(Convert.ToHexString(afterName));                  // La cola fija (barras, etc)
+
+                    // 8. COLA DINÁMICA (afterName) - v3.3.4 Injector de Pre-empaque
+                    byte[] localAfterName = (byte[])afterName.Clone();
+                    if (!isPesable)
+                    {
+                        // Inyectar cantidad fija 1 en la cola para que el Modo Automático (Pre-empaque) no salga en cero
+                        // Buscamos marcadores de bloque FF 09 (SM-300) y actualizamos el peso fijo a +11 bytes
+                        for (int k = 0; k < localAfterName.Length - 12; k++)
+                        {
+                            if (localAfterName[k] == 0xFF && localAfterName[k + 1] == 0x09)
+                            {
+                                localAfterName[k + 11] = 0x01;
+                            }
+                        }
+                    }
+                    rowHex.Append(Convert.ToHexString(localAfterName));             // La cola procesada
                     
                     batchHex.Append(rowHex.ToString().ToUpper());
                     batchHex.Append(Environment.NewLine);
