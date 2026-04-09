@@ -113,21 +113,20 @@ public class DigiService
                         Array.Copy(IntToBcdArray(0, 2), 0, record, 28, 2);
                     }
 
-                    // 5. CÓDIGO DE BARRAS (Item Code - Bytes 18-23) - v3.3.2 (Single Zero Offset)
-                    // Estructura: Padding (0) + Flag (1) + PLU (5) + Cantidad/Peso (5) = 12 dígitos
-                    // v3.3.2: Se agrega offset de 1 cero para centrar el código según foto 2 000200
-                    string flag = "2";
+                    // 5. CÓDIGO DE BARRAS (Item Code - Bytes 18-23) - v3.3.3 (Regreso a v3.1 Estabilizado)
+                    // Estructura: PLU (5) + Cantidad/Peso (5) + Relleno (2) = 12 dígitos
+                    // v3.3.3: Basado en estructura que funcionó inicialmente (PLU en Byte 19-20)
                     string plu = item.PluCode.ToString().PadLeft(5, '0');
                     if (plu.Length > 5) plu = plu.Substring(plu.Length - 5);
                     
-                    string qty = isPesable ? "00000" : "00001"; // 5 dígitos para completar 12
-                    string fullBarcodeStr = ("0" + flag + plu + qty).Substring(0, 12);
+                    string qty = isPesable ? "00000" : "00001"; 
+                    string fullBarcodeStr = (plu + qty + "00").Substring(0, 12);
                     
                     byte[] barcodeBytes = new byte[6];
                     for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);
                     Array.Copy(barcodeBytes, 0, record, 18, 6);
 
-                    // 6. FORMATO DE ETIQUETA (Byte 15) - Forzar 17 (F17 EAN-13)
+                    // 6. FORMATO DE ETIQUETA (Byte 15) - Forzar 17 (EAN-13)
                     record[15] = (byte)17; 
 
                     // 7. NOMBRE (En numNameStart + 3) y LONGITUD (En numNameStart + 2)

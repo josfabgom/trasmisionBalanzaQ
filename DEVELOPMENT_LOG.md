@@ -40,8 +40,10 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-09 (v3.3.3)
+*   **Regreso a Estructura Barcode Verificada:** Ante los errores de desplazamiento, se restauró la lógica de la v3.1.0 (`PLU 5 + Peso 5 + Relleno 2`). Esta es la única estructura que demostró centrar el PLU correctamente en el pasado, ahora con el fix de Cantidad 1 para modo unidad.
+
 ### 🗓️ 2026-04-09 (v3.3.2)
-*   **Fix Alineación Barcode Final (Offset Single Zero):** Se ajustó el Item Code para usar un solo cero de relleno inicial (`0 + Flag + PLU + Cantidad`). Esto deja el Flag en el segundo dígito decimal de la trama BCD, logrando la alineación perfecta para PLUs de 1 a 5 dígitos detectada en las últimas etiquetas.
 
 ### 🗓️ 2026-04-09 (v3.3.1)
 
