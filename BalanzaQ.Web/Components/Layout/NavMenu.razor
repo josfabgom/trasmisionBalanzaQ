@@ -1,3 +1,7 @@
+@using BalanzaQ.Web.Data
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="">
@@ -47,7 +51,13 @@
             </NavLink>
         </div>
 
-        <div class="nav-item px-3 mt-5 border-top pt-3">
+        <div class="nav-item px-3 mt-4 border-top pt-3 text-center">
+            <span class="text-muted small opacity-75" style="font-size: 0.75rem;">
+                <i class="bi bi-info-circle me-1"></i> Versión @AppVersion
+            </span>
+        </div>
+
+        <div class="nav-item px-3 mt-2">
             <button class="btn btn-link nav-link text-danger w-100 text-start" @onclick="CerrarSistema">
                 <i class="bi bi-power me-3 fs-5"></i> Cerrar Sistema
             </button>
@@ -56,8 +66,28 @@
 </div>
 
 @code {
-    private void CerrarSistema()
+    private string AppVersion => BalanzaQ.Web.Data.AppConstants.AppVersion;
+
+    private async Task CerrarSistema()
     {
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "¿Está seguro que desea cerrar el sistema por completo?");
+        if (!confirmed) return;
+
+        try 
+        {
+            // Intentar cerrar la pestaña del navegador o limpiar la pantalla
+            await JSRuntime.InvokeVoidAsync("eval", "window.close(); if(!window.closed){ window.location.href = 'about:blank'; }");
+            
+            // Esperar un momento para que el navegador procese el comando
+            await Task.Delay(1000);
+
+            // Limpiar procesos de driver si quedaron colgados
+            var drivers = System.Diagnostics.Process.GetProcessesByName("digiwtcp");
+            foreach (var d in drivers) try { d.Kill(); } catch { }
+        }
+        catch { }
+        
+        // Finalizar la aplicación por completo
         Environment.Exit(0);
     }
 }

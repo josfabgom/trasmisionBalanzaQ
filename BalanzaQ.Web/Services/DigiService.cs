@@ -82,9 +82,11 @@ public class DigiService
 
                 foreach (var item in batchItems)
                 {
-                    // Mapeo Forense Digi (V3)
-                    byte[] recordHeader = new byte[numNameStart + 3];
-                    Array.Copy(templateBytes, 0, recordHeader, 0, recordHeader.Length);
+                    // Mapeo Forenese Digi (V3.1): Soporte Pre-empaque Unidad
+                    bool isPesable = item.ItemType == "P";
+                    int headerLen = isPesable ? numNameStart + 3 : numNameStart + 2;
+                    byte[] recordHeader = new byte[headerLen];
+                    Array.Copy(templateBytes, 0, recordHeader, 0, Math.Min(templateBytes.Length, recordHeader.Length));
 
                     // PLU (0-3)
                     Array.Copy(IntToBcdArray(item.PluCode, 4), 0, recordHeader, 0, 4);
@@ -94,45 +96,47 @@ public class DigiService
                     if (nameToUse.Length > 28) nameToUse = nameToUse.Substring(0, 28);
                     byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
                     int currentLen = nameBytes.Length;
-
+                    
                     // HEADER (5): Base(42) + Len
-                    bool isPesable = item.ItemType == "P";
+                    recordHeader[4] = 0x00; // Departamento 0
                     recordHeader[5] = (byte)(0x2A + currentLen); 
                     recordHeader[6] = isPesable ? (byte)0x7C : (byte)0x7D;
 
-                    // TIPO DE ARTÍCULO (Byte 10) - Estándar 0x0D para ambos
+                    // TIPO DE ARTÍCULO (Byte 10) - Estándar 0x0D
                     recordHeader[10] = 0x0D; 
 
-                    // PRECIO (11-14) - 4 bytes BCD (ej: 6000 -> 00 06 00 00)
-                    // Para SM-300 con 1 decimal mostrado, el multiplicador 10 es el correcto.
+                    // PRECIO (11-14)
                     Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, recordHeader, 11, 4);
 
                     // TIPO Y SECCIÓN (16-17)
-                    // CALIBRACIÓN DEFINITIVA: 
-                    // 1. Flag 20 (Byte 17 = 0x20) -> Genera los primeros dos dígitos '20'.
-                    // 2. PLU de 5 dígitos -> Completa hasta el dígito 7 (ej: 2010044).
-                    // 3. Peso de 5 dígitos -> Empieza en la posición 6 del Item Code (Dígitos 8-12 del EAN).
                     int selectedFormat = 17;
                     recordHeader[15] = (byte)selectedFormat; 
-                    recordHeader[16] = 0x00; 
-                    recordHeader[17] = 0x20; // FLAG 20 (Para que el código empiece con 20...)
+                    recordHeader[16] = 0x05; 
+                    recordHeader[17] = 0x20; 
 
                     // ITEM CODE (18-23) - 6 bytes BCD
-                    // PLU 5 dígitos + 5 ceros de peso + 2 ceros de relleno = 12 dígitos.
+                    // v3.1: Siempre usar filler 11111 para Pre-empaque (evita supresión de barras)
                     string pluPart = item.PluCode.ToString().PadLeft(5, '0');
-                    string fillerPart = isPesable ? "00000" : "00001";
-                    string strCode = (pluPart + fillerPart + "00").Substring(0, 12);
+                    string fillerPart = "11111"; // Forzado para estabilidad
+                    string strCode = (pluPart + fillerPart + "11").Substring(0, 12);
                     byte[] codeBcd = new byte[6];
                     for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
                     Array.Copy(codeBcd, 0, recordHeader, 18, 6);
 
-                    // SECCIÓN (24-25) Y FORMATO DE ETIQUETA (26-27)
-                    // Mantenemos 30 y 30 para estabilidad absoluta del diseño
+                    // SECCIÓN Y FORMATO (24-27)
                     Array.Copy(IntToBcdArray(30, 2), 0, recordHeader, 24, 2);
                     Array.Copy(IntToBcdArray(30, 2), 0, recordHeader, 26, 2);
-                    // LEN NOMBRE (Header final)
-                    recordHeader[recordHeader.Length - 1] = (byte)currentLen;
 
+                    // AJUSTE DE COLA DE HEADER (Metadata específica para 7D)
+                    if (!isPesable)
+                    {
+                        // Basado en Hex verificado: ...01 01 07 <LEN>
+                        recordHeader[headerLen - 4] = 0x01;
+                        recordHeader[headerLen - 3] = 0x01;
+                        recordHeader[headerLen - 2] = 0x07;
+                    }
+
+                    recordHeader[recordHeader.Length - 1] = (byte)currentLen;
                     batchHex.Append(Convert.ToHexString(recordHeader));
                     batchHex.Append(Convert.ToHexString(nameBytes));
                     batchHex.Append(Convert.ToHexString(afterName));
@@ -141,28 +145,51 @@ public class DigiService
                 string hexPayload = batchHex.ToString().ToUpper();
                 string destFileName = $"SM{balanza.IpAddress}F37.DAT";
                 string datFileDigi = Path.Combine(digiFolder, destFileName);
-                File.WriteAllText(datFileDigi, hexPayload, Encoding.ASCII);
-                finalLogAll.Append(hexPayload);
-
-                if (!enviarABalanza) continue;
-
-                // Limpiar resultado previo para evitar colisiones
+                
+                if (File.Exists(datFileDigi)) try { File.Delete(datFileDigi); } catch {}
                 string resultPath = Path.Combine(digiFolder, "RESULT");
                 if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
 
-                // 3. Escribir Lote a Balanza
+                File.WriteAllText(datFileDigi, hexPayload, Encoding.ASCII);
+                finalLogAll.Append(hexPayload);
+
+                // Verificación de integridad (v22)
+                if (!File.Exists(datFileDigi)) 
+                    return ($"ERROR: No se pudo crear el archivo de datos en {datFileDigi}", "");
+                
+                long fileLen = new FileInfo(datFileDigi).Length;
+                if (fileLen == 0)
+                    return ($"ERROR: El archivo generado está vacío en {datFileDigi}", "");
+
+                if (!enviarABalanza) continue;
+
+                // 3. Escribir Lote a Balanza (v25: Método .bat para estabilidad)
+                string batPath = Path.Combine(digiFolder, "run_sync.bat");
+                string batContent = $"@echo off\r\ncd /d \"%~dp0\"\r\ndigiwtcp.exe WR 37 {balanza.IpAddress}\r\nexit";
+                File.WriteAllText(batPath, batContent);
+
                 ProcessStartInfo psi = new ProcessStartInfo
                 {
-                    FileName = digiExe,
-                    Arguments = $"WR 37 {balanza.IpAddress}",
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"{batPath}\"",
                     WorkingDirectory = digiFolder,
                     UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true
+                    CreateNoWindow = true
                 };
 
-                using var process = Process.Start(psi);
-                await process!.WaitForExitAsync();
+                using (var process = Process.Start(psi))
+                {
+                    if (process != null) {
+                        if (!process.WaitForExit(15000)) {
+                            try { process.Kill(); } catch {}
+                            return ($"Error: Tiempo de espera agotado en {balanza.IpAddress}", "");
+                        }
+                    }
+                }
+                
+                try { if (File.Exists(batPath)) File.Delete(batPath); } catch {}
+
+                Thread.Sleep(500);
                 
                 string resultLine = await ReadResultWithRetry(resultPath);
                 string resCode = resultLine; 
