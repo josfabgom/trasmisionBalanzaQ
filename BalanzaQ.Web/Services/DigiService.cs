@@ -76,7 +76,6 @@ public class DigiService
 
             // 2. Transmisión INDIVIDUAL "TANQUE" (v3.3.9)
             StringBuilder finalLogAll = new StringBuilder();
-            string digiFolder = Path.Combine(_baseDir, "Digi");
             string resultPath = Path.Combine(digiFolder, "RESULT");
             
             for (int i = 0; i < items.Count; i++)
