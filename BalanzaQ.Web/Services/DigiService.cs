@@ -101,6 +101,18 @@ public class DigiService
                     Array.Copy(IntToBcdArray(item.ShelfLife, 2), 0, record, 24, 2);
                     Array.Copy(IntToBcdArray(item.Section, 2), 0, record, 26, 2);
 
+                    // 4b. CANTIDAD / PESO FIJO (Bytes 28-29) - Crítico para 7D (Unidades)
+                    if (!isPesable)
+                    {
+                        // Forzamos 1 unidad para que el pre-empaque no salga en cero
+                        Array.Copy(IntToBcdArray(1, 2), 0, record, 28, 2);
+                    }
+                    else
+                    {
+                        // Para pesables, asegurar que esté en cero o según plantilla
+                        Array.Copy(IntToBcdArray(0, 2), 0, record, 28, 2);
+                    }
+
                     // 5. NOMBRE (En numNameStart + 3) y LONGITUD (En numNameStart + 2)
                     // Los marcadores 03 07 (en numNameStart y numNameStart + 1) NO se tocan, se heredan de la plantilla.
                     string nameToUse = item.Name ?? "";
