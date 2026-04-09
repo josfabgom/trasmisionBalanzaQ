@@ -76,7 +76,6 @@ public class DigiService
 
             // 2. Transmisión INDIVIDUAL (v3.3.8 para máxima fiabilidad)
             StringBuilder finalLogAll = new StringBuilder();
-            string digiFolder = Path.Combine(_baseDir, "Digi");
             string batPath = Path.Combine(digiFolder, "run_sync.bat");
             string f37Path = Path.Combine(digiFolder, $"SM{balanza.IpAddress}F37.DAT");
 
