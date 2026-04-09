@@ -40,8 +40,11 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-09 (v3.3.0)
+*   **Fix Alineación de Código de Barras:** Se implementó una estructura de 12 dígitos (`Flag 2 + PLU 5 + Cantidad 5 + 0`) para corregir el desplazamiento que causaba que la balanza viera el PLU movido.
+*   **Forzado de Formato 17:** Se configuró el byte 15 de forma explícita en `17` (Indica formato EAN-13 estándar para balanzas Digi).
+
 ### 🗓️ 2026-04-09 (v3.2.9)
-*   **Fix Código de Barras Dinámico:** Se restauró la actualización de los bytes 18-23 (Item Code) dentro de la estrategia de clonación. Antes, todos los artículos heredaban el código de barras de la plantilla. Ahora cada artículo genera su propio EAN13 dinámicamente con `Flag 2` + `PLU (6)` + `Cantidad (1)`.
 
 ### 🗓️ 2026-04-09 (v3.2.8)
 

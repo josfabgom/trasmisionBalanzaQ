@@ -113,19 +113,24 @@ public class DigiService
                         Array.Copy(IntToBcdArray(0, 2), 0, record, 28, 2);
                     }
 
-                    // 5. CÓDIGO DE BARRAS (Item Code - Bytes 18-23) - v3.2.9 Dinámico
-                    // Formato: Flag 2 + PLU (6 dígitos) + Cantidad/Relleno (5 dígitos) = 12 dígitos
-                    // v3.2.9: Limpia cualquier residuo del código de la plantilla
+                    // 5. CÓDIGO DE BARRAS (Item Code - Bytes 18-23) - v3.3.0 Estabilizado
+                    // Estructura: Flag (1) + PLU (5) + Cantidad/Peso (5) + Extra (1) = 12 dígitos
+                    // Ejemplo para PLU 22: "2" + "00022" + "00001" + "0"
                     string flag = "2";
-                    string plu = item.PluCode.ToString().PadLeft(6, '0');
-                    string qty = isPesable ? "00000" : "00001"; // Si es unidad, marcar 1 para pre-empaque
-                    string fullCode = (flag + plu + qty).PadRight(12, '0').Substring(0, 12);
+                    string plu = item.PluCode.ToString().PadLeft(5, '0');
+                    if (plu.Length > 5) plu = plu.Substring(plu.Length - 5); // Solo últimos 5 si es muy largo
+                    
+                    string qty = isPesable ? "00000" : "00001"; 
+                    string fullBarcodeStr = (flag + plu + qty + "0").Substring(0, 12);
                     
                     byte[] barcodeBytes = new byte[6];
-                    for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullCode.Substring(j * 2, 2), 16);
+                    for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);
                     Array.Copy(barcodeBytes, 0, record, 18, 6);
 
-                    // 6. NOMBRE (En numNameStart + 3) y LONGITUD (En numNameStart + 2)
+                    // 6. FORMATO DE ETIQUETA (Byte 15) - Forzar 17 (F17 EAN-13)
+                    record[15] = (byte)17; 
+
+                    // 7. NOMBRE (En numNameStart + 3) y LONGITUD (En numNameStart + 2)
                     // Los marcadores 03 07 (en numNameStart y numNameStart + 1) NO se tocan, se heredan de la plantilla.
                     string nameToUse = item.Name ?? "";
                     if (nameToUse.Length > 28) nameToUse = nameToUse.Substring(0, 28);
