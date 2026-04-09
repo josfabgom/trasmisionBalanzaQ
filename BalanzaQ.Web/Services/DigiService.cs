@@ -133,13 +133,13 @@ public class DigiService
                     record[15] = (byte)17; 
 
                     // 7. NOMBRE (En numNameStart + 3) y LONGITUD (En numNameStart + 2)
-                    // Los marcadores 03 07 (en numNameStart y numNameStart + 1) NO se tocan, se heredan de la plantilla.
+                    // v3.3.6: Forzamos longitud fija (Padded with spaces) para estabilidad en lotes
                     string nameToUse = item.Name ?? "";
-                    if (nameToUse.Length > 28) nameToUse = nameToUse.Substring(0, 28);
-                    byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
+                    if (nameToUse.Length > templateNameLen) nameToUse = nameToUse.Substring(0, templateNameLen);
+                    nameToUse = nameToUse.PadRight(templateNameLen, ' ');
                     
-                    // Actualizar longitud del nombre
-                    record[numNameStart + 2] = (byte)nameBytes.Length;
+                    byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
+                    record[numNameStart + 2] = (byte)templateNameLen;
 
                     // Construir Hex del registro
                     StringBuilder rowHex = new StringBuilder();

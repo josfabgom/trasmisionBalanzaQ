@@ -40,8 +40,10 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-09 (v3.3.6)
+*   **Registros de Tamaño Fijo (Batch Stability):** Se implementó el relleno de nombres con espacios (`PadRight`) hasta alcanzar la longitud exacta de la plantilla (`templateNameLen`). Esto garantiza que todos los registros en una transmisión por lotes midan lo mismo (ej. 171 bytes), permitiendo que la balanza reciba múltiples PLUs sin desincronizarse.
+
 ### 🗓️ 2026-04-09 (v3.3.5)
-*   **Lectura Robusta de Plantilla:** Se implementó una limpieza por Regex para el archivo `TEMPLATE.DAT`, eliminando cualquier espacio o salto de línea. Esto evita que los registros se trunquen o se corrompan al leerse, garantizando que los 171 bytes lleguen íntegros a la balanza.
 
 ### 🗓️ 2026-04-09 (v3.3.4)
 
