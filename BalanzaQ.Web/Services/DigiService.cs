@@ -59,9 +59,12 @@ public class DigiService
             using (var fs = new FileStream(templatePath, FileMode.Open, FileAccess.Read))
             using (var sr = new StreamReader(fs, Encoding.ASCII))
             {
-                string hex = sr.ReadToEnd().Trim();
-                if (hex.EndsWith("E2")) hex = hex.Substring(0, hex.Length - 2);
-                templateBytes = Convert.FromHexString(hex);
+                string rawHex = await sr.ReadToEndAsync();
+                // Limpieza total: eliminar todo lo que no sea hexadecimal (espacios, saltos de línea, etc)
+                string cleanHex = System.Text.RegularExpressions.Regex.Replace(rawHex, @"[^a-fA-F0-9]", "");
+                
+                if (cleanHex.EndsWith("E2")) cleanHex = cleanHex.Substring(0, cleanHex.Length - 2);
+                templateBytes = Convert.FromHexString(cleanHex);
             }
 
             int numNameStart = FindSequence(templateBytes, new byte[] { 0x03, 0x07 });

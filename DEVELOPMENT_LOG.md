@@ -40,8 +40,10 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-09 (v3.3.5)
+*   **Lectura Robusta de Plantilla:** Se implementó una limpieza por Regex para el archivo `TEMPLATE.DAT`, eliminando cualquier espacio o salto de línea. Esto evita que los registros se trunquen o se corrompan al leerse, garantizando que los 171 bytes lleguen íntegros a la balanza.
+
 ### 🗓️ 2026-04-09 (v3.3.4)
-*   **Fix Definitivo Pre-empaque (Modo Automático):** Implementación de un inyector dinámico de "Peso Fijo" en la cola del registro (`afterName`). El programa ahora detecta los bloques secundarios de la SM-300 y fuerza la cantidad a 1. Esto permite que la balanza imprima etiquetas sin peso real en modo automático sin que el código de barras salga en cero.
 
 ### 🗓️ 2026-04-09 (v3.3.3)
 
