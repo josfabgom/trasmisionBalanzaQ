@@ -40,8 +40,14 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-09 (v3.3.7)
+*   **Estabilización por Comparativa de Hex:** Tras comparar un registro exitoso con el generado, se realizaron tres ajustes críticos: 
+    1) Marcador de nombre corregido de `03` a `01`. 
+    2) Offset del Inyector de Pre-empaque corregido al byte `+9` tras el marcador `FF 09`. 
+    3) Barcode alineado exactamente al patrón `00 02 21`. 
+    Esto debería normalizar tanto la transmisión por lotes como el peso en modo automático.
+
 ### 🗓️ 2026-04-09 (v3.3.6)
-*   **Registros de Tamaño Fijo (Batch Stability):** Se implementó el relleno de nombres con espacios (`PadRight`) hasta alcanzar la longitud exacta de la plantilla (`templateNameLen`). Esto garantiza que todos los registros en una transmisión por lotes midan lo mismo (ej. 171 bytes), permitiendo que la balanza reciba múltiples PLUs sin desincronizarse.
 
 ### 🗓️ 2026-04-09 (v3.3.5)
 

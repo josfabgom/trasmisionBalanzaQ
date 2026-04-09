@@ -116,14 +116,11 @@ public class DigiService
                         Array.Copy(IntToBcdArray(0, 2), 0, record, 28, 2);
                     }
 
-                    // 5. CÓDIGO DE BARRAS (Item Code - Bytes 18-23) - v3.3.3 (Regreso a v3.1 Estabilizado)
-                    // Estructura: PLU (5) + Cantidad/Peso (5) + Relleno (2) = 12 dígitos
-                    // v3.3.3: Basado en estructura que funcionó inicialmente (PLU en Byte 19-20)
-                    string plu = item.PluCode.ToString().PadLeft(5, '0');
-                    if (plu.Length > 5) plu = plu.Substring(plu.Length - 5);
-                    
-                    string qty = isPesable ? "00000" : "00001"; 
-                    string fullBarcodeStr = (plu + qty + "00").Substring(0, 12);
+                    // 5. CÓDIGO DE BARRAS (Item Code - Bytes 18-23) - v3.3.7 (Refinado según hex corregido)
+                    // Estructura: Padding (000) + PLU (N) + Filler (111...) = 12 dígitos
+                    // v3.3.7: Basado en el registro bueno "00 02 21 11 11 11"
+                    string pluPart = item.PluCode.ToString();
+                    string fullBarcodeStr = ("000" + pluPart + "1111111111").Substring(0, 12);
                     
                     byte[] barcodeBytes = new byte[6];
                     for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);
@@ -133,7 +130,9 @@ public class DigiService
                     record[15] = (byte)17; 
 
                     // 7. NOMBRE (En numNameStart + 3) y LONGITUD (En numNameStart + 2)
-                    // v3.3.6: Forzamos longitud fija (Padded with spaces) para estabilidad en lotes
+                    // v3.3.7: Marcador Corregido a 0x01 (según hex bueno)
+                    record[numNameStart] = (byte)0x01; 
+                    
                     string nameToUse = item.Name ?? "";
                     if (nameToUse.Length > templateNameLen) nameToUse = nameToUse.Substring(0, templateNameLen);
                     nameToUse = nameToUse.PadRight(templateNameLen, ' ');
@@ -143,27 +142,25 @@ public class DigiService
 
                     // Construir Hex del registro
                     StringBuilder rowHex = new StringBuilder();
-                    rowHex.Append(Convert.ToHexString(record, 0, numNameStart + 3)); // Parte antes del nombre
-                    rowHex.Append(Convert.ToHexString(nameBytes));                  // El nombre real
+                    rowHex.Append(Convert.ToHexString(record, 0, numNameStart + 3)); 
+                    rowHex.Append(Convert.ToHexString(nameBytes));                  
 
-                    // 8. COLA DINÁMICA (afterName) - v3.3.4 Injector de Pre-empaque
+                    // 8. COLA DINÁMICA (afterName) - v3.3.7 Inyector Corregido (+9)
                     byte[] localAfterName = (byte[])afterName.Clone();
                     if (!isPesable)
                     {
-                        // Inyectar cantidad fija 1 en la cola para que el Modo Automático (Pre-empaque) no salga en cero
-                        // Buscamos marcadores de bloque FF 09 (SM-300) y actualizamos el peso fijo a +11 bytes
-                        for (int k = 0; k < localAfterName.Length - 12; k++)
+                        for (int k = 0; k < localAfterName.Length - 10; k++)
                         {
                             if (localAfterName[k] == 0xFF && localAfterName[k + 1] == 0x09)
                             {
-                                localAfterName[k + 11] = 0x01;
+                                localAfterName[k + 9] = 0x01; // Offset corregido según hex bueno
                             }
                         }
                     }
-                    rowHex.Append(Convert.ToHexString(localAfterName));             // La cola procesada
+                    rowHex.Append(Convert.ToHexString(localAfterName));             
                     
-                    batchHex.Append(rowHex.ToString().ToUpper());
-                    batchHex.Append(Environment.NewLine);
+                    batchHex.Append(rowHex.ToString());
+                    batchHex.Append("\n");
                 }
 
                 string hexPayload = batchHex.ToString().ToUpper();
