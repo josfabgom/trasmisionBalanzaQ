@@ -40,8 +40,10 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-09 (v3.2.9)
+*   **Fix Código de Barras Dinámico:** Se restauró la actualización de los bytes 18-23 (Item Code) dentro de la estrategia de clonación. Antes, todos los artículos heredaban el código de barras de la plantilla. Ahora cada artículo genera su propio EAN13 dinámicamente con `Flag 2` + `PLU (6)` + `Cantidad (1)`.
+
 ### 🗓️ 2026-04-09 (v3.2.8)
-*   **Fix Pre-empaque Unidades:** Se forzó la cantidad a `00 01` (1 unidad) en los bytes 28-29 para registros `7D`. Esto corrige el problema donde el código de barras salía con peso cero y la etiqueta no mostraba la cantidad correcta.
 
 ### 🗓️ 2026-04-09 (v3.2.7)
 *   **Fix Crítico READ_FILE_ERR:** Corregido error de lectura del driver `digiwtcp`. Se agregaron saltos de línea (`Environment.NewLine`) entre registros PLU y se restauró la integridad del marcador de nombre `03 07` que estaba siendo sobreescrito.
