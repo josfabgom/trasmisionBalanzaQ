@@ -40,8 +40,10 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-09 (v3.3.2)
+*   **Fix Alineación Barcode Final (Offset Single Zero):** Se ajustó el Item Code para usar un solo cero de relleno inicial (`0 + Flag + PLU + Cantidad`). Esto deja el Flag en el segundo dígito decimal de la trama BCD, logrando la alineación perfecta para PLUs de 1 a 5 dígitos detectada en las últimas etiquetas.
+
 ### 🗓️ 2026-04-09 (v3.3.1)
-*   **Corrección de Alineación Barcode (Ajuste a la Derecha):** Se aplicó un relleno inicial de `00` al campo Item Code. Esto desplaza el Flag al tercer dígito de la trama BCD, centrando correctamente el PLU y la cantidad en el código de barras EAN-13 para Digi.
 
 ### 🗓️ 2026-04-09 (v3.3.0)
 
