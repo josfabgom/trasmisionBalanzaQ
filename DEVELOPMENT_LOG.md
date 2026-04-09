@@ -40,6 +40,10 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-09 (v3.2.7)
+*   **Fix Definitivo READ_FILE_ERR:** Rediseño total de la generación de tramas usando una **Estrategia de Clonación (Template Override)**. En lugar de construir el registro, se clona la `TEMPLATE.DAT` y se inyectan valores en posiciones fijas. Esto evita cualquier desplazamiento de bytes y asegura que los marcadores de nombre `03 07` sean intocables.
+*   **Estadísticas de Versión:** Centralización absoluta de la lógica de transmisión.
+
 ### 🗓️ 2026-04-09 (v3.2.6)
 *   **Fix Crítico READ_FILE_ERR:** Corregido error de lectura del driver `digiwtcp`. Se agregaron saltos de línea (`Environment.NewLine`) entre registros PLU y se restauró la integridad del marcador de nombre `03 07` que estaba siendo sobreescrito.
 *   **Vencimiento y Sección Dinámicos:** Se mapearon correctamente los campos `item.ShelfLife` y `item.Section` en la trama F37 (offsets 24-27). Ya no se usa el valor hardcodeado de 30 días.

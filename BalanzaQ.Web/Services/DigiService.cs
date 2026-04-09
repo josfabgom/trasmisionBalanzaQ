@@ -82,67 +82,41 @@ public class DigiService
 
                 foreach (var item in batchItems)
                 {
-                    // Mapeo Forenese Digi (V3.1): Soporte Pre-empaque Unidad
+                    // v3.2.7: Estrategia de Clonación de Plantilla (Full Template Override)
+                    // Partimos de una copia exacta de la plantilla que sabemos que funciona.
+                    byte[] record = (byte[])templateBytes.Clone();
                     bool isPesable = item.ItemType == "P";
-                    int headerLen = isPesable ? numNameStart + 3 : numNameStart + 2;
-                    byte[] recordHeader = new byte[headerLen];
-                    Array.Copy(templateBytes, 0, recordHeader, 0, Math.Min(templateBytes.Length, recordHeader.Length));
 
-                    // PLU (0-3)
-                    Array.Copy(IntToBcdArray(item.PluCode, 4), 0, recordHeader, 0, 4);
+                    // 1. PLU (Bytes 0-3)
+                    Array.Copy(IntToBcdArray(item.PluCode, 4), 0, record, 0, 4);
 
-                    // NOMBRE (Para Header)
-                    string nameToUse = item.Name;
+                    // 2. TIPO DE ARTÍCULO (Byte 6) y Cabecera de Control (Byte 5)
+                    record[5] = isPesable ? (byte)0x41 : (byte)0x39;
+                    record[6] = isPesable ? (byte)0x7C : (byte)0x7D;
+
+                    // 3. PRECIO (Bytes 11-14)
+                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, record, 11, 4);
+
+                    // 4. VENCIMIENTO Y SECCIÓN (Bytes 24-27)
+                    Array.Copy(IntToBcdArray(item.ShelfLife, 2), 0, record, 24, 2);
+                    Array.Copy(IntToBcdArray(item.Section, 2), 0, record, 26, 2);
+
+                    // 5. NOMBRE (En numNameStart + 3) y LONGITUD (En numNameStart + 2)
+                    // Los marcadores 03 07 (en numNameStart y numNameStart + 1) NO se tocan, se heredan de la plantilla.
+                    string nameToUse = item.Name ?? "";
                     if (nameToUse.Length > 28) nameToUse = nameToUse.Substring(0, 28);
                     byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
-                    int currentLen = nameBytes.Length;
                     
-                    // HEADER (5-6): Base(42) + Len
-                    recordHeader[4] = 0x00; // Departamento 0
-                    recordHeader[5] = isPesable ? (byte)0x41 : (byte)0x39; 
-                    recordHeader[6] = isPesable ? (byte)0x7C : (byte)0x7D;
+                    // Actualizar longitud del nombre
+                    record[numNameStart + 2] = (byte)nameBytes.Length;
 
-                    // TIPO DE ARTÍCULO (Byte 10) - Estándar 0x0D
-                    recordHeader[10] = 0x0D; 
-
-                    // PRECIO (11-14)
-                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, recordHeader, 11, 4);
-
-                    // TIPO Y SECCIÓN (16-17)
-                    int selectedFormat = 17;
-                    recordHeader[15] = (byte)selectedFormat; 
-                    recordHeader[16] = 0x05; 
-                    recordHeader[17] = 0x20; 
-
-                    // ITEM CODE (18-23) - 6 bytes BCD
-                    // v3.1: Siempre usar filler 11111 para Pre-empaque (evita supresión de barras)
-                    string pluPart = item.PluCode.ToString().PadLeft(5, '0');
-                    string fillerPart = "11111"; // Forzado para estabilidad
-                    string strCode = (pluPart + fillerPart + "11").Substring(0, 12);
-                    byte[] codeBcd = new byte[6];
-                    for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
-                    Array.Copy(codeBcd, 0, recordHeader, 18, 6);
-
-                    // SECCIÓN Y VENCIMIENTO REALES (24-27)
-                    Array.Copy(IntToBcdArray(item.ShelfLife, 2), 0, recordHeader, 24, 2);
-                    Array.Copy(IntToBcdArray(item.Section, 2), 0, recordHeader, 26, 2);
-
-                    // AJUSTE DE COLA DE HEADER (Metadata específica para 7D)
-                    if (!isPesable)
-                    {
-                        // En 7D, los bytes justo antes de la longitud del nombre suelen ser 01 01
-                        // Evitamos sobreescribir el marcador 03 07 (que suele estar atrás)
-                        if (headerLen >= 4)
-                        {
-                            recordHeader[headerLen - 4] = 0x01;
-                            recordHeader[headerLen - 3] = 0x01;
-                        }
-                    }
-
-                    recordHeader[recordHeader.Length - 1] = (byte)currentLen;
-                    batchHex.Append(Convert.ToHexString(recordHeader));
-                    batchHex.Append(Convert.ToHexString(nameBytes));
-                    batchHex.Append(Convert.ToHexString(afterName));
+                    // Construir Hex del registro
+                    StringBuilder rowHex = new StringBuilder();
+                    rowHex.Append(Convert.ToHexString(record, 0, numNameStart + 3)); // Parte antes del nombre
+                    rowHex.Append(Convert.ToHexString(nameBytes));                  // El nombre real
+                    rowHex.Append(Convert.ToHexString(afterName));                  // La cola fija (barras, etc)
+                    
+                    batchHex.Append(rowHex.ToString().ToUpper());
                     batchHex.Append(Environment.NewLine);
                 }
 
