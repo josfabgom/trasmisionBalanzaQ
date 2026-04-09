@@ -40,11 +40,17 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
-### 🗓️ 2026-04-09 (v3.2.3)
-*   **Cierre de Sistema:** Mejora en el botón "Cerrar Sistema" con confirmación de usuario y limpieza forzada de procesos de driver (`digiwtcp`) para un cierre 100% limpio.
-*   **Consolidación de Versión:** Centralización del número de versión en `AppConstants.cs` y reflejo en el Top Bar dinámico.
+### 🗓️ 2026-04-09 (v3.2.6)
+*   **Fix Crítico READ_FILE_ERR:** Corregido error de lectura del driver `digiwtcp`. Se agregaron saltos de línea (`Environment.NewLine`) entre registros PLU y se restauró la integridad del marcador de nombre `03 07` que estaba siendo sobreescrito.
+*   **Vencimiento y Sección Dinámicos:** Se mapearon correctamente los campos `item.ShelfLife` y `item.Section` en la trama F37 (offsets 24-27). Ya no se usa el valor hardcodeado de 30 días.
 
-### 🗓️ 2026-04-09 (v3.2.2)
+### 🗓️ 2026-04-09 (v3.2.5)
+*   **Cierre de Navegador:** Integración de JS (`window.close`) en la lógica de salida para cerrar la pestaña/limpiar pantalla antes de matar el proceso del servidor, evitando el mensaje de "Reconnecting".
+
+### 🗓️ 2026-04-09 (v3.2.4)
+*   **Fix Interactividad UI:** Implementado `@rendermode InteractiveServer` en `NavMenu.razor` para habilitar los eventos de clic (`@onclick`) que estaban inactivos por el modo estático de Blazor 8.
+
+### 🗓️ 2026-04-09 (v3.2.3)
 
 ### 🗓️ 2026-04-08 (v3.1.0)
 *   **Barra de Progreso:** Implementación en UI (`Articulos.razor`) con feedback en tiempo real `_currentProgress / _totalProgress`.
