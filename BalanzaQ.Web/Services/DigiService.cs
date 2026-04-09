@@ -113,15 +113,15 @@ public class DigiService
                         Array.Copy(IntToBcdArray(0, 2), 0, record, 28, 2);
                     }
 
-                    // 5. CÓDIGO DE BARRAS (Item Code - Bytes 18-23) - v3.3.0 Estabilizado
-                    // Estructura: Flag (1) + PLU (5) + Cantidad/Peso (5) + Extra (1) = 12 dígitos
-                    // Ejemplo para PLU 22: "2" + "00022" + "00001" + "0"
+                    // 5. CÓDIGO DE BARRAS (Item Code - Bytes 18-23) - v3.3.1 (Offset Adjust)
+                    // Estructura: Padding (00) + Flag (1) + PLU (5) + Cantidad/Peso (4) = 12 dígitos
+                    // v3.3.1: Se agrega offset de 2 ceros para centrar el código en Digi SM-300
                     string flag = "2";
                     string plu = item.PluCode.ToString().PadLeft(5, '0');
-                    if (plu.Length > 5) plu = plu.Substring(plu.Length - 5); // Solo últimos 5 si es muy largo
+                    if (plu.Length > 5) plu = plu.Substring(plu.Length - 5);
                     
-                    string qty = isPesable ? "00000" : "00001"; 
-                    string fullBarcodeStr = (flag + plu + qty + "0").Substring(0, 12);
+                    string qty = isPesable ? "0000" : "0001"; // 4 dígitos para completar 12
+                    string fullBarcodeStr = ("00" + flag + plu + qty).Substring(0, 12);
                     
                     byte[] barcodeBytes = new byte[6];
                     for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);

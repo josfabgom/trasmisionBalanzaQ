@@ -40,9 +40,10 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-09 (v3.3.1)
+*   **Corrección de Alineación Barcode (Ajuste a la Derecha):** Se aplicó un relleno inicial de `00` al campo Item Code. Esto desplaza el Flag al tercer dígito de la trama BCD, centrando correctamente el PLU y la cantidad en el código de barras EAN-13 para Digi.
+
 ### 🗓️ 2026-04-09 (v3.3.0)
-*   **Fix Alineación de Código de Barras:** Se implementó una estructura de 12 dígitos (`Flag 2 + PLU 5 + Cantidad 5 + 0`) para corregir el desplazamiento que causaba que la balanza viera el PLU movido.
-*   **Forzado de Formato 17:** Se configuró el byte 15 de forma explícita en `17` (Indica formato EAN-13 estándar para balanzas Digi).
 
 ### 🗓️ 2026-04-09 (v3.2.9)
 
