@@ -74,47 +74,34 @@ public class DigiService
             byte[] afterName = new byte[templateBytes.Length - (numNameStart + 3 + templateNameLen)];
             Array.Copy(templateBytes, numNameStart + 3 + templateNameLen, afterName, 0, afterName.Length);
 
-            // 2. Transmisión INDIVIDUAL (v3.3.8 para máxima fiabilidad)
+            // 2. Transmisión INDIVIDUAL "TANQUE" (v3.3.9)
             StringBuilder finalLogAll = new StringBuilder();
-            string batPath = Path.Combine(digiFolder, "run_sync.bat");
-            string f37Path = Path.Combine(digiFolder, $"SM{balanza.IpAddress}F37.DAT");
-
+            string digiFolder = Path.Combine(_baseDir, "Digi");
+            string resultPath = Path.Combine(digiFolder, "RESULT");
+            
             for (int i = 0; i < items.Count; i++)
             {
                 var item = items[i];
                 byte[] record = (byte[])templateBytes.Clone();
                 bool isPesable = item.ItemType == "P";
 
-                // 1. PLU (Bytes 0-3)
+                // Setup del registro (PLU, Tipo, Precio, etc)
                 Array.Copy(IntToBcdArray(item.PluCode, 4), 0, record, 0, 4);
-
-                // 2. TIPO DE ARTÍCULO (Byte 6) y Cabecera de Control (Byte 5)
                 record[5] = isPesable ? (byte)0x41 : (byte)0x39;
                 record[6] = isPesable ? (byte)0x7C : (byte)0x7D;
-
-                // 3. PRECIO (Bytes 11-14)
                 Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, record, 11, 4);
-
-                // 4. VENCIMIENTO Y SECCIÓN (Bytes 24-27)
                 Array.Copy(IntToBcdArray(item.ShelfLife, 2), 0, record, 24, 2);
                 Array.Copy(IntToBcdArray(item.Section, 2), 0, record, 26, 2);
-
-                // 4b. CANTIDAD FIJA (Bytes 28-29)
                 Array.Copy(IntToBcdArray(isPesable ? 0 : 1, 2), 0, record, 28, 2);
 
-                // 5. CÓDIGO DE BARRAS (Item Code)
                 string fullBarcodeStr = ("000" + item.PluCode.ToString() + "1111111111").Substring(0, 12);
                 byte[] barcodeBytes = new byte[6];
                 for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);
                 Array.Copy(barcodeBytes, 0, record, 18, 6);
-
                 record[15] = (byte)17; 
 
-                // 7. NOMBRE (En numNameStart + 3) - Marker 01
                 record[numNameStart] = (byte)0x01; 
-                string nameToUse = item.Name ?? "";
-                if (nameToUse.Length > templateNameLen) nameToUse = nameToUse.Substring(0, templateNameLen);
-                nameToUse = nameToUse.PadRight(templateNameLen, ' ');
+                string nameToUse = (item.Name ?? "").PadRight(templateNameLen, ' ').Substring(0, templateNameLen);
                 byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
                 record[numNameStart + 2] = (byte)templateNameLen;
 
@@ -122,7 +109,6 @@ public class DigiService
                 rowHex.Append(Convert.ToHexString(record, 0, numNameStart + 3)); 
                 rowHex.Append(Convert.ToHexString(nameBytes));                  
 
-                // 8. COLA DINÁMICA (afterName) - v3.3.8 Inyector Total
                 byte[] localAfterName = (byte[])afterName.Clone();
                 for (int k = 0; k < localAfterName.Length - 12; k++)
                 {
@@ -134,29 +120,43 @@ public class DigiService
                 }
                 rowHex.Append(Convert.ToHexString(localAfterName));             
 
-                // Transmitir individualmente
-                string payload = rowHex.ToString().ToUpper() + "\n";
-                await File.WriteAllTextAsync(f37Path, payload);
-                if (File.Exists(batPath)) try { File.Delete(batPath); } catch {}
+                // Preparación de archivos para la IP específica
+                string f37Path = Path.Combine(digiFolder, $"SM{balanza.IpAddress}F37.DAT");
+                if (File.Exists(f37Path)) try { File.Delete(f37Path); } catch {}
+                if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
+                
+                await File.WriteAllTextAsync(f37Path, rowHex.ToString().ToUpper() + "\n");
 
                 if (enviarABalanza)
                 {
+                    // v3.3.9: Limpiar procesos colgados de digi
+                    foreach (var p in Process.GetProcessesByName("digiwtcp")) try { p.Kill(); } catch {}
+
+                    string batPath = Path.Combine(digiFolder, "run_sync.bat");
                     string batContent = $"@echo off\r\ncd /d \"%~dp0\"\r\ndigiwtcp.exe /I:{balanza.IpAddress} /S:300 /F:37\r\nexit";
                     await File.WriteAllTextAsync(batPath, batContent);
+
                     using (Process proc = Process.Start("cmd.exe", $"/c \"{batPath}\""))
                     {
                         await proc.WaitForExitAsync();
-                        finalLogAll.AppendLine($"PLU {item.PluCode}: OK");
                     }
+
+                    // Esperar y verificar resultado
+                    string resultLine = await ReadResultWithRetry(resultPath);
+                    finalLogAll.AppendLine($"PLU {item.PluCode}: {resultLine}");
+                    
+                    // Delay de "respiración" para la balanza
+                    await Task.Delay(1500);
                 }
+
                 onProgress?.Invoke(i + 1, items.Count);
             }
 
-            return ("Exito", finalLogAll.ToString());
+            return ("Sincronización 'Tanque' Completada.", finalLogAll.ToString());
         }
         catch (Exception ex)
         {
-            return ($"EXCEPTION: {ex.Message}", "");
+            return ($"ERROR: {ex.Message}", "");
         }
     }
 

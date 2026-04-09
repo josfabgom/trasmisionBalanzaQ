@@ -40,8 +40,10 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-09 (v3.3.9)
+*   **Estrategia Individual "Tanque":** Implementación de una sincronización de alta fiabilidad. Se añadió un **retraso de 1.5 segundos** entre cada envío de PLU y una **limpieza de procesos** del driver `digiwtcp.exe`. Esto garantiza que la balanza tenga tiempo de procesar y liberar la memoria entre cada registro, asegurando que todos los PLU del lote lleguen correctamente.
+
 ### 🗓️ 2026-04-09 (v3.3.8)
-*   **Sincronización Individual (Bypass de Buffer):** Cambio radical en la estrategia de envío. El programa ahora genera un archivo y ejecuta el driver por **cada PLU individualmente**. Esto soluciona definitivamente el problema donde solo el primer artículo llegaba a la balanza. Además, el inyector de cola ahora es universal (offsets +9 y +11) para asegurar Pre-empaque en todos los tipos de artículos.
 
 ### 🗓️ 2026-04-09 (v3.3.7)
 
