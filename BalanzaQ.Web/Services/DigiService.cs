@@ -97,9 +97,9 @@ public class DigiService
                     byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
                     int currentLen = nameBytes.Length;
                     
-                    // HEADER (5): Base(42) + Len
+                    // HEADER (5-6): Base(42) + Len
                     recordHeader[4] = 0x00; // Departamento 0
-                    recordHeader[5] = (byte)(0x2A + currentLen); 
+                    recordHeader[5] = isPesable ? (byte)0x41 : (byte)0x39; 
                     recordHeader[6] = isPesable ? (byte)0x7C : (byte)0x7D;
 
                     // TIPO DE ARTÍCULO (Byte 10) - Estándar 0x0D
@@ -123,23 +123,27 @@ public class DigiService
                     for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
                     Array.Copy(codeBcd, 0, recordHeader, 18, 6);
 
-                    // SECCIÓN Y FORMATO (24-27)
-                    Array.Copy(IntToBcdArray(30, 2), 0, recordHeader, 24, 2);
-                    Array.Copy(IntToBcdArray(30, 2), 0, recordHeader, 26, 2);
+                    // SECCIÓN Y VENCIMIENTO REALES (24-27)
+                    Array.Copy(IntToBcdArray(item.ShelfLife, 2), 0, recordHeader, 24, 2);
+                    Array.Copy(IntToBcdArray(item.Section, 2), 0, recordHeader, 26, 2);
 
                     // AJUSTE DE COLA DE HEADER (Metadata específica para 7D)
                     if (!isPesable)
                     {
-                        // Basado en Hex verificado: ...01 01 07 <LEN>
-                        recordHeader[headerLen - 4] = 0x01;
-                        recordHeader[headerLen - 3] = 0x01;
-                        recordHeader[headerLen - 2] = 0x07;
+                        // En 7D, los bytes justo antes de la longitud del nombre suelen ser 01 01
+                        // Evitamos sobreescribir el marcador 03 07 (que suele estar atrás)
+                        if (headerLen >= 4)
+                        {
+                            recordHeader[headerLen - 4] = 0x01;
+                            recordHeader[headerLen - 3] = 0x01;
+                        }
                     }
 
                     recordHeader[recordHeader.Length - 1] = (byte)currentLen;
                     batchHex.Append(Convert.ToHexString(recordHeader));
                     batchHex.Append(Convert.ToHexString(nameBytes));
                     batchHex.Append(Convert.ToHexString(afterName));
+                    batchHex.Append(Environment.NewLine);
                 }
 
                 string hexPayload = batchHex.ToString().ToUpper();
