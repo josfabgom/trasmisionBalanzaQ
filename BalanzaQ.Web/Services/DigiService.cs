@@ -128,7 +128,7 @@ public class DigiService
                     rowHex.Append(Convert.ToHexString(localAfterName));             
                     
                     batchHex.Append(rowHex.ToString().ToUpper());
-                    batchHex.Append("\n");
+                    // v3.4.3: SIN SALTO DE LÍNEA. Cadena pura para mantener alineación de 171 bytes.
                 }
 
                 if (File.Exists(f37Path)) try { File.Delete(f37Path); } catch {}

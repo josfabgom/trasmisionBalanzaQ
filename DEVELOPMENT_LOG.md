@@ -24,6 +24,9 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-10 (v3.4.3)
+*   **Alineación Total (Cadena Continua + WR 37):** Se eliminaron los saltos de línea entre registros para mantener la alineación de 171 bytes, y se mantuvo el comando original `WR 37`. Esta combinación elimina tanto el error de "Solo el primer PLU" como el error `WRIT_FILE_ERR`.
+
 ### 🗓️ 2026-04-10 (v3.4.2)
 *   **Restauración de Comando Original:** Se volvió al formato de comando `WR 37 {IP}` tras detectar que el formato anterior (`/I: /S: /F:`) provocaba un error `WRIT_FILE_ERR` en la versión del driver del cliente. Se mantuvo el uso de `\n` como separador que ha demostrado ser estable.
 
