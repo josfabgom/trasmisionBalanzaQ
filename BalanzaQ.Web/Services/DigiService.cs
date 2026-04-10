@@ -74,60 +74,67 @@ public class DigiService
             byte[] afterName = new byte[templateBytes.Length - (numNameStart + 3 + templateNameLen)];
             Array.Copy(templateBytes, numNameStart + 3 + templateNameLen, afterName, 0, afterName.Length);
 
-            // 2. Transmisión INDIVIDUAL (v3.4.4 para máxima fiabilidad)
+            // 2. Transmisión MASIVA (v3.4.5 para estabilidad y velocidad)
+            int batchSize = 1000;
             StringBuilder finalLogAll = new StringBuilder();
             string resultPath = Path.Combine(digiFolder, "RESULT");
             string f37Path = Path.Combine(digiFolder, $"SM{balanza.IpAddress}F37.DAT");
             string batPath = Path.Combine(digiFolder, "run_sync.bat");
 
-            for (int i = 0; i < items.Count; i++)
+            for (int i = 0; i < items.Count; i += batchSize)
             {
-                var item = items[i];
-                byte[] record = (byte[])templateBytes.Clone();
-                bool isPesable = item.ItemType == "P";
+                var batchItems = items.Skip(i).Take(batchSize).ToList();
+                StringBuilder batchHex = new StringBuilder();
 
-                // Data Setup
-                Array.Copy(IntToBcdArray(item.PluCode, 4), 0, record, 0, 4);
-                record[5] = isPesable ? (byte)0x41 : (byte)0x39;
-                record[6] = isPesable ? (byte)0x7C : (byte)0x7D;
-                Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, record, 11, 4);
-                Array.Copy(IntToBcdArray(item.ShelfLife, 2), 0, record, 24, 2);
-                Array.Copy(IntToBcdArray(item.Section, 2), 0, record, 26, 2);
-                Array.Copy(IntToBcdArray(isPesable ? 0 : 1, 2), 0, record, 28, 2);
-
-                // Barcode (v3.3.7 pattern)
-                string fullBarcodeStr = ("000" + item.PluCode.ToString() + "1111111111").Substring(0, 12);
-                byte[] barcodeBytes = new byte[6];
-                for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);
-                Array.Copy(barcodeBytes, 0, record, 18, 6);
-                record[15] = (byte)17; 
-
-                // Name & Marker
-                record[numNameStart] = (byte)0x01; 
-                string nameToUse = (item.Name ?? "").PadRight(templateNameLen, ' ').Substring(0, templateNameLen);
-                byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
-                record[numNameStart + 2] = (byte)templateNameLen;
-
-                StringBuilder rowHex = new StringBuilder();
-                rowHex.Append(Convert.ToHexString(record, 0, numNameStart + 3)); 
-                rowHex.Append(Convert.ToHexString(nameBytes));                  
-
-                byte[] localAfterName = (byte[])afterName.Clone();
-                for (int k = 0; k < localAfterName.Length - 12; k++)
+                foreach (var item in batchItems)
                 {
-                    if (localAfterName[k] == 0xFF && localAfterName[k + 1] == 0x09)
+                    byte[] record = (byte[])templateBytes.Clone();
+                    bool isPesable = item.ItemType == "P";
+
+                    // Data Setup
+                    Array.Copy(IntToBcdArray(item.PluCode, 4), 0, record, 0, 4);
+                    record[5] = isPesable ? (byte)0x41 : (byte)0x39;
+                    record[6] = isPesable ? (byte)0x7C : (byte)0x7D;
+                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, record, 11, 4);
+                    Array.Copy(IntToBcdArray(item.ShelfLife, 2), 0, record, 24, 2);
+                    Array.Copy(IntToBcdArray(item.Section, 2), 0, record, 26, 2);
+                    Array.Copy(IntToBcdArray(isPesable ? 0 : 1, 2), 0, record, 28, 2);
+
+                    // Barcode (v3.3.7 pattern)
+                    string fullBarcodeStr = ("000" + item.PluCode.ToString() + "1111111111").Substring(0, 12);
+                    byte[] barcodeBytes = new byte[6];
+                    for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);
+                    Array.Copy(barcodeBytes, 0, record, 18, 6);
+                    record[15] = (byte)17; 
+
+                    // Name & Marker
+                    record[numNameStart] = (byte)0x01; 
+                    string nameToUse = (item.Name ?? "").PadRight(templateNameLen, ' ').Substring(0, templateNameLen);
+                    byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
+                    record[numNameStart + 2] = (byte)templateNameLen;
+
+                    StringBuilder rowHex = new StringBuilder();
+                    rowHex.Append(Convert.ToHexString(record, 0, numNameStart + 3)); 
+                    rowHex.Append(Convert.ToHexString(nameBytes));                  
+
+                    byte[] localAfterName = (byte[])afterName.Clone();
+                    for (int k = 0; k < localAfterName.Length - 12; k++)
                     {
-                        localAfterName[k + 9] = 0x01; 
-                        localAfterName[k + 10] = 0x01; 
+                        if (localAfterName[k] == 0xFF && localAfterName[k + 1] == 0x09)
+                        {
+                            localAfterName[k + 9] = 0x01; 
+                            localAfterName[k + 10] = 0x01; 
+                        }
                     }
+                    rowHex.Append(Convert.ToHexString(localAfterName));             
+                    
+                    batchHex.Append(rowHex.ToString().ToUpper());
                 }
-                rowHex.Append(Convert.ToHexString(localAfterName));             
-                
-                // Transmitir individualmente
+
                 if (File.Exists(f37Path)) try { File.Delete(f37Path); } catch {}
                 if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
                 
-                await File.WriteAllTextAsync(f37Path, rowHex.ToString().ToUpper() + "\n", Encoding.ASCII);
+                await File.WriteAllTextAsync(f37Path, batchHex.ToString(), Encoding.ASCII);
 
                 if (enviarABalanza)
                 {
@@ -145,31 +152,34 @@ public class DigiService
                     if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
 
                     bool success = (resCode == "0");
-                    finalLogAll.AppendLine($"PLU {item.PluCode}: {resultLine}");
+                    finalLogAll.AppendLine($"BATCH {i/batchSize + 1}: {resultLine}");
 
-                    // Auditoría Item por Item
-                    item.LastSyncDate = DateTime.Now;
-                    item.LastSyncStatus = success ? "Exitoso" : "Fallo";
-                    item.LastSyncError = GetDigiErrorMessage(resCode);
-                    item.IsSyncronized = success;
-
-                    _db.SyncLogs.Add(new SyncLog
+                    // Auditoría de lote
+                    foreach (var bItem in batchItems)
                     {
-                        BalanzaIp = balanza.IpAddress,
-                        PluCode = item.PluCode,
-                        ProductName = item.Name,
-                        Status = item.LastSyncStatus,
-                        ErrorMessage = item.LastSyncError,
-                        BatchId = batchId,
-                        Date = DateTime.Now
-                    });
-                    await AppendToLogAsync(balanza, item);
+                        bItem.LastSyncDate = DateTime.Now;
+                        bItem.LastSyncStatus = success ? "Exitoso" : "Fallo";
+                        bItem.LastSyncError = GetDigiErrorMessage(resCode);
+                        bItem.IsSyncronized = success;
+
+                        _db.SyncLogs.Add(new SyncLog
+                        {
+                            BalanzaIp = balanza.IpAddress,
+                            PluCode = bItem.PluCode,
+                            ProductName = bItem.Name,
+                            Status = bItem.LastSyncStatus,
+                            ErrorMessage = bItem.LastSyncError,
+                            BatchId = batchId,
+                            Date = DateTime.Now
+                        });
+                        await AppendToLogAsync(balanza, bItem);
+                    }
                 }
 
-                onProgress?.Invoke(i + 1, items.Count);
+                onProgress?.Invoke(Math.Min(i + batchSize, items.Count), items.Count);
             }
 
-            return ("Sincronización Individual Finalizada.", finalLogAll.ToString());
+            return ("Sincronización Masiva Completada.", finalLogAll.ToString());
         }
         catch (Exception ex)
         {

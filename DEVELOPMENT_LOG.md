@@ -10,8 +10,8 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 *   **Archivos de Intercambio:**
     *   `SM<IP>F37.DAT`: Productos y Barcodes.
     *   `SM<IP>F52.DAT`: Formatos de Etiqueta.
-    *   `RESULT`: Archivo de salida del driver (se lee con reintentos para evitar bloqueos).
-*   **Estrategia de Transmisión (v3.4.4):** Sincronización **INDIVIDUAL** (1 a 1). Se envía un archivo con un solo registro y se ejecuta el driver. Esto soluciona la limitación del driver de solo procesar el primer PLU de un lote.
+    *   `RESULT`: Archivo de salida del driver.
+*   **Estrategia de Transmisión (v3.4.5):** Sincronización **MASIVA (Batch)** mejorada. Se envían todos los registros en un solo archivo `F37` sin separadores (flujo continuo de 171 bytes por registro). Se utiliza el comando verificado `WR 37 {IP}`.
 
 ### 🏷️ Estructura de Barcode (EAN-13)
 *   **Formato Usado:** **17** (Llave para Pre-empaque).
@@ -24,19 +24,16 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-10 (v3.4.5)
+*   **Lote Continuo Definitivo:** Se regresó al modo Batch (hasta 1000 items) pero eliminando definitivamente los saltos de línea. El archivo es una cadena binaria pura de registros de 171 bytes. Comando verificado: `WR 37`.
+
 ### 🗓️ 2026-04-10 (v3.4.4)
-*   **Sincronización Individual Robusta:** Se cambió la estrategia a envío de 1-a-1 usando el comando verificado `WR 37`. Esto garantiza que todos los PLUs sean procesados por la balanza, evitando el cierre prematuro de conexión del driver tras el primer artículo.
-
-### 🗓️ 2026-04-10 (v3.4.3)
-*   **Alineación Total (Cadena Continua + WR 37):** Intento de envío masivo sin saltos de línea. Descartado porque el driver solo lee el primer registro de todas formas.
-
-### 🗓️ 2026-04-10 (v3.4.1 - v3.4.2)
-*   **Pruebas de Formato de Comando:** Se identificó que el formato `/I: /S: /F:` no era compatible con el driver del cliente, restaurando el comando `WR 37`.
+*   **Sincronización Individual:** Intento de envío 1-a-1. Descartado por saturar el driver y causar errores de lectura de archivo (`READ_FILE_ERR`).
 
 ---
 
 ## ⚠️ Reglas de Oro para Futuros Cambios
-1. **USAR TRANSMISIÓN INDIVIDUAL** si el lote no llega completo. El driver parece tener limitaciones de buffer para múltiples registros en un solo archivo.
+1. **NO USAR SALTOS DE LÍNEA** en transmisiones masivas. El driver requiere registros de 171 bytes alineados perfectamente.
 2. **MODO AUTOMÁTICO:** Siempre inyectar `01 01` en los bytes +9 y +10 después de `FF 09`.
 3. **COMANDO:** Mantener `digiwtcp.exe WR 37 {IP}` como estándar de comunicación.
 
