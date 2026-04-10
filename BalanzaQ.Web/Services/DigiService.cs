@@ -165,7 +165,6 @@ public class DigiService
                     });
                     await AppendToLogAsync(balanza, item);
                 }
-            }
 
                 onProgress?.Invoke(i + 1, items.Count);
             }
