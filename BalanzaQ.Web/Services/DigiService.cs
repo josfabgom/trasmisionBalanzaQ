@@ -74,69 +74,68 @@ public class DigiService
             byte[] afterName = new byte[templateBytes.Length - (numNameStart + 3 + templateNameLen)];
             Array.Copy(templateBytes, numNameStart + 3 + templateNameLen, afterName, 0, afterName.Length);
 
-            // 2. Transmisión MASIVA (v3.4.8 - CRLF + 0101 Marker)
-            int batchSize = 1000;
+            // 2. Transmisión INDIVIDUAL con enfriamiento (v3.4.9 - Fiabilidad Total)
             StringBuilder finalLogAll = new StringBuilder();
+            string digiFolder = Path.Combine(_baseDir, "Digi");
             string resultPath = Path.Combine(digiFolder, "RESULT");
             string f37Path = Path.Combine(digiFolder, $"SM{balanza.IpAddress}F37.DAT");
             string batPath = Path.Combine(digiFolder, "run_sync.bat");
 
-            for (int i = 0; i < items.Count; i += batchSize)
+            for (int i = 0; i < items.Count; i++)
             {
-                var batchItems = items.Skip(i).Take(batchSize).ToList();
-                StringBuilder batchHex = new StringBuilder();
+                var item = items[i];
+                byte[] record = (byte[])templateBytes.Clone();
+                bool isPesable = item.ItemType == "P";
 
-                foreach (var item in batchItems)
+                // Setup del registro
+                Array.Copy(IntToBcdArray(item.PluCode, 4), 0, record, 0, 4);
+                record[5] = isPesable ? (byte)0x41 : (byte)0x39;
+                record[6] = isPesable ? (byte)0x7C : (byte)0x7D;
+                Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, record, 11, 4);
+                Array.Copy(IntToBcdArray(item.ShelfLife, 2), 0, record, 24, 2);
+                Array.Copy(IntToBcdArray(item.Section, 2), 0, record, 26, 2);
+                Array.Copy(IntToBcdArray(isPesable ? 0 : 1, 2), 0, record, 28, 2);
+
+                // Barcode
+                string fullBarcodeStr = ("000" + item.PluCode.ToString() + "1111111111").Substring(0, 12);
+                byte[] barcodeBytes = new byte[6];
+                for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);
+                Array.Copy(barcodeBytes, 0, record, 18, 6);
+                record[15] = (byte)17; 
+
+                // Name Marker Fix (01 01 pattern)
+                record[numNameStart] = (byte)0x01; 
+                record[numNameStart + 1] = (byte)0x01; 
+                
+                string nameToUse = (item.Name ?? "").PadRight(templateNameLen, ' ').Substring(0, templateNameLen);
+                byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
+                record[numNameStart + 2] = (byte)templateNameLen;
+
+                StringBuilder rowHex = new StringBuilder();
+                rowHex.Append(Convert.ToHexString(record, 0, numNameStart + 3)); 
+                rowHex.Append(Convert.ToHexString(nameBytes));                  
+
+                byte[] localAfterName = (byte[])afterName.Clone();
+                for (int k = 0; k < localAfterName.Length - 12; k++)
                 {
-                    byte[] record = (byte[])templateBytes.Clone();
-                    bool isPesable = item.ItemType == "P";
-
-                    // Data Setup
-                    Array.Copy(IntToBcdArray(item.PluCode, 4), 0, record, 0, 4);
-                    record[5] = isPesable ? (byte)0x41 : (byte)0x39;
-                    record[6] = isPesable ? (byte)0x7C : (byte)0x7D;
-                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, record, 11, 4);
-                    Array.Copy(IntToBcdArray(item.ShelfLife, 2), 0, record, 24, 2);
-                    Array.Copy(IntToBcdArray(item.Section, 2), 0, record, 26, 2);
-                    Array.Copy(IntToBcdArray(isPesable ? 0 : 1, 2), 0, record, 28, 2);
-
-                    // Barcode (v3.3.7 pattern)
-                    string fullBarcodeStr = ("000" + item.PluCode.ToString() + "1111111111").Substring(0, 12);
-                    byte[] barcodeBytes = new byte[6];
-                    for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);
-                    Array.Copy(barcodeBytes, 0, record, 18, 6);
-                    record[15] = (byte)17; 
-
-                    // Name Marker Fix (v3.4.8: 01 01 pattern)
-                    record[numNameStart] = (byte)0x01; 
-                    record[numNameStart + 1] = (byte)0x01; 
-                    string nameToUse = (item.Name ?? "").PadRight(templateNameLen, ' ').Substring(0, templateNameLen);
-                    byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
-                    record[numNameStart + 2] = (byte)templateNameLen;
-
-                    StringBuilder rowHex = new StringBuilder();
-                    rowHex.Append(Convert.ToHexString(record, 0, numNameStart + 3)); 
-                    rowHex.Append(Convert.ToHexString(nameBytes));                  
-
-                    byte[] localAfterName = (byte[])afterName.Clone();
-                    for (int k = 0; k < localAfterName.Length - 12; k++)
+                    if (localAfterName[k] == 0xFF && localAfterName[k + 1] == 0x09)
                     {
-                        if (localAfterName[k] == 0xFF && localAfterName[k + 1] == 0x09)
-                        {
-                            localAfterName[k + 9] = 0x01; 
-                            localAfterName[k + 10] = 0x01; 
-                        }
+                        localAfterName[k + 9] = 0x01; 
+                        localAfterName[k + 10] = 0x01; 
                     }
-                    rowHex.Append(Convert.ToHexString(localAfterName));             
-                    
-                    // v3.4.8: Usamos CRLF (\r\n) para separar PLUs en el lote
-                    batchHex.Append(rowHex.ToString().ToUpper() + "\r\n");
                 }
+                rowHex.Append(Convert.ToHexString(localAfterName));             
+
+                // Preparar archivos y limpiar procesos
+                try { 
+                    Process[] procs = Process.GetProcessesByName("digiwtcp");
+                    foreach (var p in procs) p.Kill();
+                } catch {}
 
                 if (File.Exists(f37Path)) try { File.Delete(f37Path); } catch {}
                 if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
                 
-                await File.WriteAllTextAsync(f37Path, batchHex.ToString(), Encoding.ASCII);
+                await File.WriteAllTextAsync(f37Path, rowHex.ToString().ToUpper(), Encoding.ASCII);
 
                 if (enviarABalanza)
                 {
@@ -154,34 +153,34 @@ public class DigiService
                     if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
 
                     bool success = (resCode == "0");
-                    finalLogAll.AppendLine($"BATCH {i/batchSize + 1}: {resultLine}");
+                    finalLogAll.AppendLine($"PLU {item.PluCode}: {resultLine}");
 
-                    // Auditoría de lote
-                    foreach (var bItem in batchItems)
+                    // Auditoría Item por Item
+                    item.LastSyncDate = DateTime.Now;
+                    item.LastSyncStatus = success ? "Exitoso" : "Fallo";
+                    item.LastSyncError = GetDigiErrorMessage(resCode);
+                    item.IsSyncronized = success;
+
+                    _db.SyncLogs.Add(new SyncLog
                     {
-                        bItem.LastSyncDate = DateTime.Now;
-                        bItem.LastSyncStatus = success ? "Exitoso" : "Fallo";
-                        bItem.LastSyncError = GetDigiErrorMessage(resCode);
-                        bItem.IsSyncronized = success;
-
-                        _db.SyncLogs.Add(new SyncLog
-                        {
-                            BalanzaIp = balanza.IpAddress,
-                            PluCode = bItem.PluCode,
-                            ProductName = bItem.Name,
-                            Status = bItem.LastSyncStatus,
-                            ErrorMessage = bItem.LastSyncError,
-                            BatchId = batchId,
-                            Date = DateTime.Now
-                        });
-                        await AppendToLogAsync(balanza, bItem);
-                    }
+                        BalanzaIp = balanza.IpAddress,
+                        PluCode = item.PluCode,
+                        ProductName = item.Name,
+                        Status = item.LastSyncStatus,
+                        ErrorMessage = item.LastSyncError,
+                        BatchId = batchId,
+                        Date = DateTime.Now
+                    });
+                    await AppendToLogAsync(balanza, item);
                 }
 
-                onProgress?.Invoke(Math.Min(i + batchSize, items.Count), items.Count);
+                onProgress?.Invoke(i + 1, items.Count);
+                
+                // v3.4.9: Enfriamiento de 1.5 segundos entre productos
+                if (i < items.Count - 1) await Task.Delay(1500);
             }
 
-            return ("Sincronización Masiva Completada.", finalLogAll.ToString());
+            return ("Sincronización Individual (con espera) Finalizada.", finalLogAll.ToString());
         }
         catch (Exception ex)
         {
