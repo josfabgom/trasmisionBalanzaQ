@@ -128,7 +128,7 @@ public class DigiService
                     rowHex.Append(Convert.ToHexString(localAfterName));             
                     
                     batchHex.Append(rowHex.ToString().ToUpper());
-                    // v3.4.1: NO agregamos salto de línea para mantener alineación de 171 bytes
+                    batchHex.Append("\n");
                 }
 
                 if (File.Exists(f37Path)) try { File.Delete(f37Path); } catch {}
@@ -139,7 +139,8 @@ public class DigiService
                 if (enviarABalanza)
                 {
                     string batPath = Path.Combine(digiFolder, "run_sync.bat");
-                    string batContent = $"@echo off\r\ncd /d \"%~dp0\"\r\ndigiwtcp.exe /I:{balanza.IpAddress} /S:300 /F:37\r\nexit";
+                    // Volvemos al comando WR 37 que es el que tu driver reconoce
+                    string batContent = $"@echo off\r\ncd /d \"%~dp0\"\r\ndigiwtcp.exe WR 37 {balanza.IpAddress}\r\nexit";
                     await File.WriteAllTextAsync(batPath, batContent);
 
                     using (Process proc = Process.Start("cmd.exe", $"/c \"{batPath}\""))

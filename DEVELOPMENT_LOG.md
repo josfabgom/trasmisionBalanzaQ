@@ -24,6 +24,9 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-10 (v3.4.2)
+*   **Restauración de Comando Original:** Se volvió al formato de comando `WR 37 {IP}` tras detectar que el formato anterior (`/I: /S: /F:`) provocaba un error `WRIT_FILE_ERR` en la versión del driver del cliente. Se mantuvo el uso de `\n` como separador que ha demostrado ser estable.
+
 ### 🗓️ 2026-04-10 (v3.4.1)
 *   **Transmisión en Cadena Continua:** Se eliminaron los saltos de línea (`\r\n`) entre registros en el envío por lotes. Esto asegura que la alineación de 171 bytes por registro sea perfecta y que el driver no se desplace al leer el segundo PLU. Es la solución técnica estándar para archivos de longitud fija.
 
