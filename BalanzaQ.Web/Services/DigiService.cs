@@ -261,26 +261,6 @@ public class DigiService
         return -1;
     }
 
-    private async Task<string> ReadResultWithRetry(string path)
-    {
-        for (int i = 0; i < 15; i++)
-        {
-            try
-            {
-                if (File.Exists(path)) {
-                   string content = (await File.ReadAllTextAsync(path)).Trim();
-                   if (!string.IsNullOrEmpty(content)) return content;
-                }
-                await Task.Delay(200); 
-            }
-            catch (IOException)
-            {
-                await Task.Delay(300); 
-            }
-        }
-        return File.Exists(path) ? "LOCKED" : "MISSING";
-    }
-
     public async Task<LabelFormatInfo?> GetLabelFormatInfoAsync(string fileName)
     {
         try
