@@ -74,7 +74,7 @@ public class DigiService
             byte[] afterName = new byte[templateBytes.Length - (numNameStart + 3 + templateNameLen)];
             Array.Copy(templateBytes, numNameStart + 3 + templateNameLen, afterName, 0, afterName.Length);
 
-            // 2. Transmisión MASIVA (v3.4.5 para estabilidad y velocidad)
+            // 2. Transmisión MASIVA (v3.4.8 - CRLF + 0101 Marker)
             int batchSize = 1000;
             StringBuilder finalLogAll = new StringBuilder();
             string resultPath = Path.Combine(digiFolder, "RESULT");
@@ -107,8 +107,9 @@ public class DigiService
                     Array.Copy(barcodeBytes, 0, record, 18, 6);
                     record[15] = (byte)17; 
 
-                    // Name & Marker
+                    // Name Marker Fix (v3.4.8: 01 01 pattern)
                     record[numNameStart] = (byte)0x01; 
+                    record[numNameStart + 1] = (byte)0x01; 
                     string nameToUse = (item.Name ?? "").PadRight(templateNameLen, ' ').Substring(0, templateNameLen);
                     byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
                     record[numNameStart + 2] = (byte)templateNameLen;
@@ -128,7 +129,8 @@ public class DigiService
                     }
                     rowHex.Append(Convert.ToHexString(localAfterName));             
                     
-                    batchHex.Append(rowHex.ToString().ToUpper());
+                    // v3.4.8: Usamos CRLF (\r\n) para separar PLUs en el lote
+                    batchHex.Append(rowHex.ToString().ToUpper() + "\r\n");
                 }
 
                 if (File.Exists(f37Path)) try { File.Delete(f37Path); } catch {}
