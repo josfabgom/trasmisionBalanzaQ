@@ -83,87 +83,89 @@ public class DigiService
             for (int i = 0; i < items.Count; i++)
             {
                 var item = items[i];
+                byte[] record = (byte[])templateBytes.Clone();
+                bool isPesable = item.ItemType == "P";
 
-                    // Data Setup
-                    Array.Copy(IntToBcdArray(item.PluCode, 4), 0, record, 0, 4);
-                    record[5] = isPesable ? (byte)0x41 : (byte)0x39;
-                    record[6] = isPesable ? (byte)0x7C : (byte)0x7D;
-                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, record, 11, 4);
-                    Array.Copy(IntToBcdArray(item.ShelfLife, 2), 0, record, 24, 2);
-                    Array.Copy(IntToBcdArray(item.Section, 2), 0, record, 26, 2);
-                    Array.Copy(IntToBcdArray(isPesable ? 0 : 1, 2), 0, record, 28, 2);
+                // Data Setup
+                Array.Copy(IntToBcdArray(item.PluCode, 4), 0, record, 0, 4);
+                record[5] = isPesable ? (byte)0x41 : (byte)0x39;
+                record[6] = isPesable ? (byte)0x7C : (byte)0x7D;
+                Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, record, 11, 4);
+                Array.Copy(IntToBcdArray(item.ShelfLife, 2), 0, record, 24, 2);
+                Array.Copy(IntToBcdArray(item.Section, 2), 0, record, 26, 2);
+                Array.Copy(IntToBcdArray(isPesable ? 0 : 1, 2), 0, record, 28, 2);
 
-                    // Barcode (v3.3.7 pattern)
-                    string fullBarcodeStr = ("000" + item.PluCode.ToString() + "1111111111").Substring(0, 12);
-                    byte[] barcodeBytes = new byte[6];
-                    for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);
-                    Array.Copy(barcodeBytes, 0, record, 18, 6);
-                    record[15] = (byte)17; 
+                // Barcode (v3.3.7 pattern)
+                string fullBarcodeStr = ("000" + item.PluCode.ToString() + "1111111111").Substring(0, 12);
+                byte[] barcodeBytes = new byte[6];
+                for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);
+                Array.Copy(barcodeBytes, 0, record, 18, 6);
+                record[15] = (byte)17; 
 
-                    // Name & Marker
-                    record[numNameStart] = (byte)0x01; 
-                    string nameToUse = (item.Name ?? "").PadRight(templateNameLen, ' ').Substring(0, templateNameLen);
-                    byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
-                    record[numNameStart + 2] = (byte)templateNameLen;
+                // Name & Marker
+                record[numNameStart] = (byte)0x01; 
+                string nameToUse = (item.Name ?? "").PadRight(templateNameLen, ' ').Substring(0, templateNameLen);
+                byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
+                record[numNameStart + 2] = (byte)templateNameLen;
 
-                    StringBuilder rowHex = new StringBuilder();
-                    rowHex.Append(Convert.ToHexString(record, 0, numNameStart + 3)); 
-                    rowHex.Append(Convert.ToHexString(nameBytes));                  
+                StringBuilder rowHex = new StringBuilder();
+                rowHex.Append(Convert.ToHexString(record, 0, numNameStart + 3)); 
+                rowHex.Append(Convert.ToHexString(nameBytes));                  
 
-                    byte[] localAfterName = (byte[])afterName.Clone();
-                    for (int k = 0; k < localAfterName.Length - 12; k++)
+                byte[] localAfterName = (byte[])afterName.Clone();
+                for (int k = 0; k < localAfterName.Length - 12; k++)
+                {
+                    if (localAfterName[k] == 0xFF && localAfterName[k + 1] == 0x09)
                     {
-                        if (localAfterName[k] == 0xFF && localAfterName[k + 1] == 0x09)
-                        {
-                            localAfterName[k + 9] = 0x01; 
-                            localAfterName[k + 10] = 0x01; 
-                        }
-                    }
-                    rowHex.Append(Convert.ToHexString(localAfterName));             
-                    
-                    // Transmitir individualmente
-                    if (File.Exists(f37Path)) try { File.Delete(f37Path); } catch {}
-                    if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
-                    
-                    await File.WriteAllTextAsync(f37Path, rowHex.ToString().ToUpper() + "\n", Encoding.ASCII);
-
-                    if (enviarABalanza)
-                    {
-                        string batContent = $"@echo off\r\ncd /d \"%~dp0\"\r\ndigiwtcp.exe WR 37 {balanza.IpAddress}\r\nexit";
-                        await File.WriteAllTextAsync(batPath, batContent);
-
-                        using (Process proc = Process.Start("cmd.exe", $"/c \"{batPath}\""))
-                        {
-                            await proc.WaitForExitAsync();
-                        }
-
-                        string resultLine = await ReadResultWithRetry(resultPath);
-                        string resCode = resultLine; 
-                        int lastColon = resultLine.LastIndexOf(':');
-                        if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
-
-                        bool success = (resCode == "0");
-                        finalLogAll.AppendLine($"PLU {item.PluCode}: {resultLine}");
-
-                        // Auditoría Item por Item
-                        item.LastSyncDate = DateTime.Now;
-                        item.LastSyncStatus = success ? "Exitoso" : "Fallo";
-                        item.LastSyncError = GetDigiErrorMessage(resCode);
-                        item.IsSyncronized = success;
-
-                        _db.SyncLogs.Add(new SyncLog
-                        {
-                            BalanzaIp = balanza.IpAddress,
-                            PluCode = item.PluCode,
-                            ProductName = item.Name,
-                            Status = item.LastSyncStatus,
-                            ErrorMessage = item.LastSyncError,
-                            BatchId = batchId,
-                            Date = DateTime.Now
-                        });
-                        await AppendToLogAsync(balanza, item);
+                        localAfterName[k + 9] = 0x01; 
+                        localAfterName[k + 10] = 0x01; 
                     }
                 }
+                rowHex.Append(Convert.ToHexString(localAfterName));             
+                
+                // Transmitir individualmente
+                if (File.Exists(f37Path)) try { File.Delete(f37Path); } catch {}
+                if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
+                
+                await File.WriteAllTextAsync(f37Path, rowHex.ToString().ToUpper() + "\n", Encoding.ASCII);
+
+                if (enviarABalanza)
+                {
+                    string batContent = $"@echo off\r\ncd /d \"%~dp0\"\r\ndigiwtcp.exe WR 37 {balanza.IpAddress}\r\nexit";
+                    await File.WriteAllTextAsync(batPath, batContent);
+
+                    using (Process proc = Process.Start("cmd.exe", $"/c \"{batPath}\""))
+                    {
+                        await proc.WaitForExitAsync();
+                    }
+
+                    string resultLine = await ReadResultWithRetry(resultPath);
+                    string resCode = resultLine; 
+                    int lastColon = resultLine.LastIndexOf(':');
+                    if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
+
+                    bool success = (resCode == "0");
+                    finalLogAll.AppendLine($"PLU {item.PluCode}: {resultLine}");
+
+                    // Auditoría Item por Item
+                    item.LastSyncDate = DateTime.Now;
+                    item.LastSyncStatus = success ? "Exitoso" : "Fallo";
+                    item.LastSyncError = GetDigiErrorMessage(resCode);
+                    item.IsSyncronized = success;
+
+                    _db.SyncLogs.Add(new SyncLog
+                    {
+                        BalanzaIp = balanza.IpAddress,
+                        PluCode = item.PluCode,
+                        ProductName = item.Name,
+                        Status = item.LastSyncStatus,
+                        ErrorMessage = item.LastSyncError,
+                        BatchId = batchId,
+                        Date = DateTime.Now
+                    });
+                    await AppendToLogAsync(balanza, item);
+                }
+            }
 
                 onProgress?.Invoke(i + 1, items.Count);
             }
