@@ -83,7 +83,8 @@ public class DigiService
                 foreach (var item in batchItems)
                 {
                     // Mapeo Forense Digi (V3)
-                    byte[] recordHeader = new byte[numNameStart + 3];
+                    // Se aumenta el tamaño para incluir el byte extra 0x07 (Fix v3.5.13)
+                    byte[] recordHeader = new byte[numNameStart + 4];
                     Array.Copy(templateBytes, 0, recordHeader, 0, recordHeader.Length);
 
                     // PLU (0-3)
@@ -116,20 +117,24 @@ public class DigiService
 
                     // ITEM CODE (18-23) - 6 bytes BCD
                     string pluPart = item.PluCode.ToString().PadLeft(5, '0');
-                    // Fix v3.5.11: Relleno '1110811' para forzar formato de Unidad (08) en lugar de Peso (11)
-                    string fillerPart = isPesable ? "00000" : "1110811"; 
+                    // Fix v3.5.13: Revertimos a relleno de solo unos (1) según la trama modelo funcional
+                    string fillerPart = isPesable ? "00000" : "1111111"; 
                     string strCode = (pluPart + fillerPart).Substring(0, 12);
                     byte[] codeBcd = new byte[6];
                     for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
                     Array.Copy(codeBcd, 0, recordHeader, 18, 6);
 
                     // SECCIÓN (24-25) Y FORMATO DE ETIQUETA (26-27)
-                    Array.Copy(IntToBcdArray(30, 2), 0, recordHeader, 24, 2);
+                    // Fix v3.5.13: Se usa 10 03 para la sección según el modelo funcional
+                    recordHeader[24] = 0x10;
+                    recordHeader[25] = 0x03;
                     Array.Copy(IntToBcdArray(30, 2), 0, recordHeader, 26, 2);
-                    // Fix v3.5.9: Marcadores de nombre 01 01 (vía User Hex Analysis)
+
+                    // ESTRUCTURA FINAL DEL HEADER (v3.5.13)
+                    // Se añade el byte de control 0x07 identificado en la trama buena
                     recordHeader[numNameStart] = 0x01;
                     recordHeader[numNameStart + 1] = 0x01;
-                    // LEN NOMBRE (Header final)
+                    recordHeader[numNameStart + 2] = 0x07; 
                     recordHeader[recordHeader.Length - 1] = (byte)currentLen;
 
                     batchHex.Append(Convert.ToHexString(recordHeader));
