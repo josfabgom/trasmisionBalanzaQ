@@ -100,11 +100,13 @@ public class DigiService
                     Array.Copy(IntToBcdArray(item.Section, 2), 0, record, 26, 2);
                     Array.Copy(IntToBcdArray(isPesable ? 0 : 1, 2), 0, record, 28, 2);
 
-                    // Barcode Fix (v3.5.5: Estructura 6+6 Limpia)
-                    // Plu (6 dígitos) + Filler (6 dígitos)
-                    string pluPart = item.PluCode.ToString().PadLeft(6, '0');
-                    string fillerPart = isPesable ? "111111" : "000001";
-                    string fullBarcodeStr = pluPart + fillerPart;
+                    // Barcode Fix (v3.5.6: Estructura 2-5-5 dígitos)
+                    // Flag (2) + PLU (5) + Peso/Cant (5) = 12 dígitos
+                    // PLU 22 -> "20" + "00022" + "00001" = 200002200001
+                    string flagPart = "20"; 
+                    string pluPart = item.PluCode.ToString().PadLeft(5, '0');
+                    string fillerPart = isPesable ? "11111" : "00001";
+                    string fullBarcodeStr = flagPart + pluPart + fillerPart;
 
                     byte[] barcodeBytes = new byte[6];
                     for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);
