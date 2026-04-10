@@ -147,17 +147,25 @@ public class DigiService
                     }
 
                     string resultLine = await ReadResultWithRetry(resultPath);
-                    string resCode = resultLine; 
-                    int lastColon = resultLine.LastIndexOf(':');
-                    if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
+                    string resCode = resultLine.Trim(); 
+                    
+                    // Mejoramos la detección para el Driver de Singapur
+                    // Suele devolver "IP : 0" o simplemente "0"
+                    bool success = false;
+                    if (resCode == "0") success = true;
+                    else if (resCode.Contains(": 0")) success = true;
+                    else if (resCode.EndsWith(":0")) success = true;
 
-                    bool success = (resCode == "0");
+                    // Extraer solo el código para el mensaje de error
+                    int lastColon = resCode.LastIndexOf(':');
+                    string cleanResCode = (lastColon >= 0) ? resCode.Substring(lastColon + 1).Trim() : resCode;
+
                     finalLogAll.AppendLine($"PLU {item.PluCode}: {resultLine}");
 
                     // Auditoría Item por Item
                     item.LastSyncDate = DateTime.Now;
                     item.LastSyncStatus = success ? "Exitoso" : "Fallo";
-                    item.LastSyncError = GetDigiErrorMessage(resCode);
+                    item.LastSyncError = success ? "Transmisión exitosa" : GetDigiErrorMessage(cleanResCode);
                     item.IsSyncronized = success;
 
                     _db.SyncLogs.Add(new SyncLog

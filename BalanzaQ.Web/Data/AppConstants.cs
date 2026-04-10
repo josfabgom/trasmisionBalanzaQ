@@ -2,5 +2,5 @@ namespace BalanzaQ.Web.Data;
 
 public static class AppConstants
 {
-    public const string AppVersion = "v3.4.9";
+    public const string AppVersion = "v3.5.0";
 }
