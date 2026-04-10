@@ -516,6 +516,48 @@ public class DigiService
         catch { return false; }
     }
 
+    public async Task<string> SendRawHexAsync(Balanza balanza, string hexPayload, int fileId = 37)
+    {
+        try
+        {
+            hexPayload = hexPayload.Replace(" ", "").Replace("\r", "").Replace("\n", "").Trim().ToUpper();
+            if (string.IsNullOrEmpty(hexPayload)) return "Error: Hex vacío";
+
+            string digiFolder = Path.Combine(_baseDir, "Digi");
+            string digiExe = Path.Combine(digiFolder, "digiwtcp.exe");
+            if (!File.Exists(digiExe)) return "ERROR: digiwtcp.exe no encontrado.";
+
+            string destFileName = $"SM{balanza.IpAddress}F{fileId}.DAT";
+            string datFileDigi = Path.Combine(digiFolder, destFileName);
+            
+            // Escribimos la trama como texto ASCII (formato esperado por el driver para F37)
+            await File.WriteAllTextAsync(datFileDigi, hexPayload, Encoding.ASCII);
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = Path.GetFullPath(digiExe),
+                Arguments = $"WR {fileId} {balanza.IpAddress}",
+                WorkingDirectory = Path.GetFullPath(digiFolder),
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true
+            };
+
+            string resultPath = Path.Combine(digiFolder, "RESULT");
+            if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
+
+            using var process = Process.Start(psi);
+            await process!.WaitForExitAsync();
+
+            string resultLine = await ReadResultWithRetry(resultPath);
+            return resultLine.Trim() == "0" ? "Éxito: Trama enviada correctamente" : $"Error driver: {resultLine}";
+        }
+        catch (Exception ex)
+        {
+            return $"EXCEPTION: {ex.Message}";
+        }
+    }
+
     private byte[] IntToBcdArray(int value, int numBytes)
     {
         string s = value.ToString().PadLeft(numBytes * 2, '0');
