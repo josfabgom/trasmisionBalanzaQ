@@ -100,8 +100,11 @@ public class DigiService
                     Array.Copy(IntToBcdArray(item.Section, 2), 0, record, 26, 2);
                     Array.Copy(IntToBcdArray(isPesable ? 0 : 1, 2), 0, record, 28, 2);
 
-                    // Barcode
-                    string fullBarcodeStr = ("000" + item.PluCode.ToString() + "1111111111").Substring(0, 12);
+                    // Barcode Fix (v3.5.3: 6+6 digits alignment)
+                    string pluPart = item.PluCode.ToString().PadLeft(6, '0');
+                    string weightPart = "111111"; 
+                    string fullBarcodeStr = pluPart + weightPart;
+
                     byte[] barcodeBytes = new byte[6];
                     for (int j = 0; j < 6; j++) barcodeBytes[j] = Convert.ToByte(fullBarcodeStr.Substring(j * 2, 2), 16);
                     Array.Copy(barcodeBytes, 0, record, 18, 6);
@@ -137,7 +140,9 @@ public class DigiService
                 if (File.Exists(f37Path)) try { File.Delete(f37Path); } catch {}
                 if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
                 
-                await File.WriteAllTextAsync(f37Path, batchHex.ToString(), Encoding.ASCII);
+                // v3.5.3: Escritura síncrona y respiro para evitar READ_FILE_ERR
+                File.WriteAllText(f37Path, batchHex.ToString(), Encoding.ASCII);
+                await Task.Delay(150); 
 
                 if (enviarABalanza)
                 {

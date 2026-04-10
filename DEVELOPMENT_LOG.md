@@ -2,34 +2,29 @@
 
 Este documento sirve como memoria técnica y registro de decisiones críticas para mantener la estabilidad del sistema de transmisión Digi SM-300 y asegurar la continuidad entre sesiones de desarrollo.
 
-## 🛠️ Especificaciones Técnicas Críticas (Ground Truth) - v3.5.2
+## 🛠️ Especificaciones Técnicas Críticas (Ground Truth) - v3.5.3
 
 ### 📡 Protocolo Digi SM-300 (Driver Singapur 2.10.1)
 *   **Driver:** `digiwtcp.exe` (Versión 2.10.1.0, 2018, English Singapore).
-*   **Estrategia de Transmisión Definitive (v3.5.1+):** Sincronización **MASIVA (Batch)** con registros continuos.
-*   **Alineación:** Registros de exactamente **171 bytes** pegados uno tras otro sin separadores.
-*   **Marcador de Nombre:** Se utiliza el patrón `01 01`.
-*   **Comando:** `digiwtcp.exe WR 37 {IP}`.
+*   **Estrategia de Transmisión Definitive:** Sincronización **MASIVA (Batch)** con registros continuos (Sin separadores).
+*   **Alineación de Registro:** 171 bytes exactos.
+*   **Barcode (Fix v3.5.3):** Estructura de **6 dígitos para PLU** + **6 dígitos para Peso/Filler**. 
+    *   *Ejemplo PLU 22:* `00 00 22 11 11 11`. Esto corrige el problema donde la cantidad aparecía en cero en la balanza por desalineación de bytes.
 
-### 🏷️ Estructura de Pre-empaque (v3.5.2)
-*   **Inyector de Pre-empaque (Fix Cantidad):** Se fuerza el valor **`00 01`** (Cantidad 1) en los bytes **+9 y +10** tras el marcador `FF 09`. 
-    *   *Nota:* El uso de `01 01` (257) causaba fallos en el pre-empaque de artículos por Unidad/Cantidad. Cambiar a `00 01` restaura la impresión automática para estos artículos.
+### 🏷️ Estructura de Pre-empaque (v3.5.3)
+*   **Inyector de Pre-empaque:** Valor **`00 01`** (Cantidad 1) tras el marcador `FF 09`. Habilita la impresión automática en artículos de unidad.
+*   **Estabilidad de Archivo:** Escritura **síncrona** del archivo `.DAT` con un retraso de 150ms antes de ejecutar el driver para evitar el error `READ_FILE_ERR` (bloqueo de archivo por el sistema operativo).
 
 ---
 
 ## 📜 Historial de Cambios Recientes
 
-### 🗓️ 2026-04-10 (v3.5.2)
-*   **Fix Pre-empaque para Unidades:** Se ajustó el valor inyectado de `01 01` a `00 01` para habilitar la impresión automática en artículos no pesables.
+### 🗓️ 2026-04-10 (v3.5.3)
+*   **Alineación de Barcode:** Fix de 6+6 dígitos para asegurar que el PLU y la cantidad se ubiquen en los bytes correctos.
+*   **Fix READ_FILE_ERR:** Implementada escritura síncrona y delay de seguridad.
 
-### 🗓️ 2026-04-10 (v3.5.1) - EL GANADOR
-*   **Restauración de Velocidad:** Batch 1000 sin separadores + Detección flexible de éxito (`: 0`).
-
----
-
-## ⚠️ Reglas de Oro para Futuros Cambios
-1. **NO USAR SEPARADORES DE LÍNEA** en el archivo `F37`.
-2. **USE 00 01** para el inyector de pre-empaque tras `FF 09`.
+### 🗓️ 2026-04-10 (v3.5.1 - v3.5.2)
+*   **Hito de Velocidad:** Restauración de modo Batch y fix de inyector de pre-empaque (`00 01`).
 
 ---
-*Última actualización: 2026-04-10 (v3.5.2)*
+*Última actualización: 2026-04-10 (v3.5.3)*
