@@ -543,4 +543,26 @@ public class DigiService
         }
         catch { /* Ignorar errores de log para no bloquear flujo */ }
     }
+
+    private async Task<string> ReadResultWithRetry(string path)
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (var sr = new StreamReader(fs))
+                    {
+                        string content = await sr.ReadToEndAsync();
+                        if (!string.IsNullOrWhiteSpace(content)) return content.Trim();
+                    }
+                }
+            }
+            catch { }
+            await Task.Delay(500); 
+        }
+        return File.Exists(path) ? "LOCKED" : "MISSING";
+    }
 }
