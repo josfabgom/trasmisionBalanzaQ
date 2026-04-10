@@ -124,7 +124,7 @@ public class DigiService
                     {
                         if (localAfterName[k] == 0xFF && localAfterName[k + 1] == 0x09)
                         {
-                            localAfterName[k + 9] = 0x01; 
+                            localAfterName[k + 9] = 0x00; 
                             localAfterName[k + 10] = 0x01; 
                         }
                     }
