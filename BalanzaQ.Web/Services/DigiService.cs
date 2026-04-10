@@ -82,64 +82,60 @@ public class DigiService
 
                 foreach (var item in batchItems)
                 {
-                    // Mapeo Forense Digi (V3)
-                    // Se aumenta el tamaño para incluir el byte extra 0x07 (Fix v3.5.13)
-                    byte[] recordHeader = new byte[numNameStart + 4];
-                    Array.Copy(templateBytes, 0, recordHeader, 0, recordHeader.Length);
+                    // Mapeo Forense Digi (v3.5.14)
+                    // Cada registro DEBE medir exactamente 132 bytes (264 caracteres hex)
+                    byte[] record = new byte[132]; 
+                    // Inicializamos con el template para mantener los bytes de auditoría al final (cola del registro)
+                    Array.Copy(templateBytes, 0, record, 0, Math.Min(templateBytes.Length, 132));
 
                     // PLU (0-3)
-                    Array.Copy(IntToBcdArray(item.PluCode, 4), 0, recordHeader, 0, 4);
+                    Array.Copy(IntToBcdArray(item.PluCode, 4), 0, record, 0, 4);
+                    
+                    // PRECIO (12-13) 
+                    bool isPesable = item.ItemType == "P";
+                    // Para unidades, enviamos el precio nominal sin x10 para evitar desborde BCD y error de escala
+                    int precioFinal = isPesable ? (int)Math.Round(item.Price * 10) : (int)Math.Round(item.Price);
+                    Array.Copy(IntToBcdArray(precioFinal, 2), 0, record, 12, 2);
 
-                    // NOMBRE (Para Header)
+                    // NOMBRE Y CONTROL (v3.5.14)
                     string nameToUse = item.Name;
                     if (nameToUse.Length > 28) nameToUse = nameToUse.Substring(0, 28);
                     byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
                     int currentLen = nameBytes.Length;
 
-                    // HEADER (5): Base(42) + Len (REVERSIÓN A SOLICITUD DE USUARIO)
-                    bool isPesable = item.ItemType == "P";
-                    recordHeader[5] = (byte)(0x2A + currentLen); 
-                    recordHeader[6] = isPesable ? (byte)0x7C : (byte)0x7D;
-
-                    // TIPO DE ARTÍCULO (Byte 10) - Estándar 0x0D para ambos
-                    recordHeader[10] = 0x0D; 
-
-                    // PRECIO (12-13) - 2 bytes BCD (ej: 980 -> 09 80)
-                    // Ajuste v3.5.11: Offset exacto para evitar bloqueo de pre-empaque
-                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 2), 0, recordHeader, 12, 2);
-
-                    // TIPO Y SECCIÓN (16-17)
-                    // CALIBRACIÓN DEFINITIVA (v20): Reversión total a código funcional del usuario
-                    int selectedFormat = 17;
-                    recordHeader[15] = (byte)selectedFormat; 
-                    recordHeader[16] = 0x05; // Fix v3.5.9: Inyector de Pre-empaque (vía User Hex Analysis)
-                    recordHeader[17] = 0x20; 
+                    // Header Fields
+                    record[5] = (byte)(0x2A + currentLen); 
+                    record[6] = isPesable ? (byte)0x7C : (byte)0x7D;
+                    record[10] = 0x0D; 
+                    record[15] = 0x11; // Formato 17
+                    record[16] = 0x05; // Inyector Pre-empaque
+                    record[17] = 0x20; 
 
                     // ITEM CODE (18-23) - 6 bytes BCD
                     string pluPart = item.PluCode.ToString().PadLeft(5, '0');
-                    // Fix v3.5.13: Revertimos a relleno de solo unos (1) según la trama modelo funcional
                     string fillerPart = isPesable ? "00000" : "1111111"; 
                     string strCode = (pluPart + fillerPart).Substring(0, 12);
                     byte[] codeBcd = new byte[6];
                     for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
-                    Array.Copy(codeBcd, 0, recordHeader, 18, 6);
+                    Array.Copy(codeBcd, 0, record, 18, 6);
 
                     // SECCIÓN (24-25) Y FORMATO DE ETIQUETA (26-27)
-                    // Fix v3.5.13: Se usa 10 03 para la sección según el modelo funcional
-                    recordHeader[24] = 0x10;
-                    recordHeader[25] = 0x03;
-                    Array.Copy(IntToBcdArray(30, 2), 0, recordHeader, 26, 2);
+                    record[24] = 0x10;
+                    record[25] = 0x03;
+                    Array.Copy(IntToBcdArray(30, 2), 0, record, 26, 2);
 
-                    // ESTRUCTURA FINAL DEL HEADER (v3.5.13)
-                    // Se añade el byte de control 0x07 identificado en la trama buena
-                    recordHeader[numNameStart] = 0x01;
-                    recordHeader[numNameStart + 1] = 0x01;
-                    recordHeader[numNameStart + 2] = 0x07; 
-                    recordHeader[recordHeader.Length - 1] = (byte)currentLen;
+                    // MARCADORES DE NOMBRE (v3.5.14)
+                    int start = numNameStart;
+                    record[start] = 0x01;
+                    record[start + 1] = 0x01;
+                    record[start + 2] = 0x07; 
+                    record[start + 3] = (byte)currentLen;
 
-                    batchHex.Append(Convert.ToHexString(recordHeader));
-                    batchHex.Append(Convert.ToHexString(nameBytes));
-                    batchHex.Append(Convert.ToHexString(afterName));
+                    // Insertar nombre (Empieza en start + 4)
+                    Array.Copy(nameBytes, 0, record, start + 4, nameBytes.Length);
+
+                    // Añadir el registro completo de 132 bytes al lote
+                    batchHex.Append(Convert.ToHexString(record));
                 }
 
                 string hexPayload = batchHex.ToString().ToUpper();
