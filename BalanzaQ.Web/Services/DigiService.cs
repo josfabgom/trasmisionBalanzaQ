@@ -74,21 +74,15 @@ public class DigiService
             byte[] afterName = new byte[templateBytes.Length - (numNameStart + 3 + templateNameLen)];
             Array.Copy(templateBytes, numNameStart + 3 + templateNameLen, afterName, 0, afterName.Length);
 
-            // 2. Transmisión MASIVA (v3.4.0 para estabilidad)
-            int batchSize = 1000;
+            // 2. Transmisión INDIVIDUAL (v3.4.4 para máxima fiabilidad)
             StringBuilder finalLogAll = new StringBuilder();
             string resultPath = Path.Combine(digiFolder, "RESULT");
             string f37Path = Path.Combine(digiFolder, $"SM{balanza.IpAddress}F37.DAT");
+            string batPath = Path.Combine(digiFolder, "run_sync.bat");
 
-            for (int i = 0; i < items.Count; i += batchSize)
+            for (int i = 0; i < items.Count; i++)
             {
-                var batchItems = items.Skip(i).Take(batchSize).ToList();
-                StringBuilder batchHex = new StringBuilder();
-
-                foreach (var item in batchItems)
-                {
-                    byte[] record = (byte[])templateBytes.Clone();
-                    bool isPesable = item.ItemType == "P";
+                var item = items[i];
 
                     // Data Setup
                     Array.Copy(IntToBcdArray(item.PluCode, 4), 0, record, 0, 4);
@@ -127,61 +121,54 @@ public class DigiService
                     }
                     rowHex.Append(Convert.ToHexString(localAfterName));             
                     
-                    batchHex.Append(rowHex.ToString().ToUpper());
-                    // v3.4.3: SIN SALTO DE LÍNEA. Cadena pura para mantener alineación de 171 bytes.
-                }
+                    // Transmitir individualmente
+                    if (File.Exists(f37Path)) try { File.Delete(f37Path); } catch {}
+                    if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
+                    
+                    await File.WriteAllTextAsync(f37Path, rowHex.ToString().ToUpper() + "\n", Encoding.ASCII);
 
-                if (File.Exists(f37Path)) try { File.Delete(f37Path); } catch {}
-                if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
-                
-                await File.WriteAllTextAsync(f37Path, batchHex.ToString(), Encoding.ASCII);
-
-                if (enviarABalanza)
-                {
-                    string batPath = Path.Combine(digiFolder, "run_sync.bat");
-                    // Volvemos al comando WR 37 que es el que tu driver reconoce
-                    string batContent = $"@echo off\r\ncd /d \"%~dp0\"\r\ndigiwtcp.exe WR 37 {balanza.IpAddress}\r\nexit";
-                    await File.WriteAllTextAsync(batPath, batContent);
-
-                    using (Process proc = Process.Start("cmd.exe", $"/c \"{batPath}\""))
+                    if (enviarABalanza)
                     {
-                        await proc.WaitForExitAsync();
-                    }
+                        string batContent = $"@echo off\r\ncd /d \"%~dp0\"\r\ndigiwtcp.exe WR 37 {balanza.IpAddress}\r\nexit";
+                        await File.WriteAllTextAsync(batPath, batContent);
 
-                    string resultLine = await ReadResultWithRetry(resultPath);
-                    string resCode = resultLine; 
-                    int lastColon = resultLine.LastIndexOf(':');
-                    if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
+                        using (Process proc = Process.Start("cmd.exe", $"/c \"{batPath}\""))
+                        {
+                            await proc.WaitForExitAsync();
+                        }
 
-                    bool success = (resCode == "0");
-                    finalLogAll.AppendLine($"BATCH {i/batchSize + 1}: {resultLine}");
+                        string resultLine = await ReadResultWithRetry(resultPath);
+                        string resCode = resultLine; 
+                        int lastColon = resultLine.LastIndexOf(':');
+                        if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
 
-                    // Auditoría
-                    foreach (var bItem in batchItems)
-                    {
-                        bItem.LastSyncDate = DateTime.Now;
-                        bItem.LastSyncStatus = success ? "Exitoso" : "Fallo";
-                        bItem.LastSyncError = GetDigiErrorMessage(resCode);
-                        bItem.IsSyncronized = success;
+                        bool success = (resCode == "0");
+                        finalLogAll.AppendLine($"PLU {item.PluCode}: {resultLine}");
+
+                        // Auditoría Item por Item
+                        item.LastSyncDate = DateTime.Now;
+                        item.LastSyncStatus = success ? "Exitoso" : "Fallo";
+                        item.LastSyncError = GetDigiErrorMessage(resCode);
+                        item.IsSyncronized = success;
 
                         _db.SyncLogs.Add(new SyncLog
                         {
                             BalanzaIp = balanza.IpAddress,
-                            PluCode = bItem.PluCode,
-                            ProductName = bItem.Name,
-                            Status = bItem.LastSyncStatus,
-                            ErrorMessage = bItem.LastSyncError,
+                            PluCode = item.PluCode,
+                            ProductName = item.Name,
+                            Status = item.LastSyncStatus,
+                            ErrorMessage = item.LastSyncError,
                             BatchId = batchId,
                             Date = DateTime.Now
                         });
-                        await AppendToLogAsync(balanza, bItem);
+                        await AppendToLogAsync(balanza, item);
                     }
                 }
 
-                onProgress?.Invoke(Math.Min(i + batchSize, items.Count), items.Count);
+                onProgress?.Invoke(i + 1, items.Count);
             }
 
-            return ("Sincronización Masiva Completada.", finalLogAll.ToString());
+            return ("Sincronización Individual Finalizada.", finalLogAll.ToString());
         }
         catch (Exception ex)
         {
