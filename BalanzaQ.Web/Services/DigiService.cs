@@ -103,9 +103,9 @@ public class DigiService
                     // TIPO DE ARTÍCULO (Byte 10) - Estándar 0x0D para ambos
                     recordHeader[10] = 0x0D; 
 
-                    // PRECIO (11-14) - 4 bytes BCD (ej: 6000 -> 00 06 00 00)
-                    // Para SM-300 con 1 decimal mostrado, el multiplicador 10 es el correcto.
-                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 4), 0, recordHeader, 11, 4);
+                    // PRECIO (12-13) - 2 bytes BCD (ej: 980 -> 09 80)
+                    // Ajuste v3.5.11: Offset exacto para evitar bloqueo de pre-empaque
+                    Array.Copy(IntToBcdArray((int)Math.Round(item.Price * 10), 2), 0, recordHeader, 12, 2);
 
                     // TIPO Y SECCIÓN (16-17)
                     // CALIBRACIÓN DEFINITIVA (v20): Reversión total a código funcional del usuario
@@ -116,8 +116,8 @@ public class DigiService
 
                     // ITEM CODE (18-23) - 6 bytes BCD
                     string pluPart = item.PluCode.ToString().PadLeft(5, '0');
-                    // Fix v3.5.9: Relleno de unos (1) para correcto funcionamiento de pre-empaque en UNIDADES
-                    string fillerPart = isPesable ? "00000" : "1111111"; 
+                    // Fix v3.5.11: Relleno '1110811' para forzar formato de Unidad (08) en lugar de Peso (11)
+                    string fillerPart = isPesable ? "00000" : "1110811"; 
                     string strCode = (pluPart + fillerPart).Substring(0, 12);
                     byte[] codeBcd = new byte[6];
                     for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
