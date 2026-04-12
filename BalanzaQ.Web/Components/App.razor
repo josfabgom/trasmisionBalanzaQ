@@ -38,6 +38,10 @@
             anchorElement.remove();
             URL.revokeObjectURL(url);
         }
+
+        window.addEventListener('beforeunload', function () {
+            navigator.sendBeacon('/api/shutdown');
+        });
     </script>
 </body>
 

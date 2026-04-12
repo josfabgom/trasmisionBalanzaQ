@@ -6,6 +6,7 @@
 @inject BalanzaDbContext DbContext
 @inject BalanzaQ.Web.Services.DigiService DigiService
 @inject IJSRuntime JS
+@inject BalanzaQ.Web.Services.BrandingService BrandingService
 
 <PageTitle>Mantenimiento de Balanzas</PageTitle>
 
@@ -180,7 +181,87 @@
         </div>
     </div>
     
+    <div class="row g-4 mt-2 mb-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm border-info anim-fade-in">
+                <div class="card-header bg-info text-white fw-bold">
+                    <i class="bi bi-person-badge-fill me-2"></i> Identidad Corporativa & Branding
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-4">
+                        <!-- Logo Section -->
+                        <div class="col-md-3 text-center border-end">
+                            <label class="form-label fw-bold d-block">Logo de Empresa</label>
+                            <div class="mb-3 position-relative">
+                                @if (!string.IsNullOrEmpty(businessLogoBase64))
+                                {
+                                    <div class="p-2 border rounded bg-white shadow-sm mb-2" style="height: 120px; display: flex; align-items: center; justify-content: center;">
+                                        <img src="data:image/png;base64,@businessLogoBase64" class="img-fluid" style="max-height: 100px;" alt="Logo Preview" />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="p-2 border border-dashed rounded bg-light mb-2 d-flex align-items-center justify-content-center" style="height: 120px;">
+                                        <i class="bi bi-image text-muted display-4"></i>
+                                    </div>
+                                }
+                                <label for="logoInput" class="btn btn-outline-info btn-sm w-100">
+                                    <i class="bi bi-upload"></i> Subir Logo
+                                </label>
+                                <InputFile id="logoInput" OnChange="OnLogoSelected" accept="image/png,image/jpeg" style="display: none;" />
+                            </div>
+                            <small class="text-muted d-block">Formato: PNG/JPG (Recomendado: 200x200px)</small>
+                        </div>
+
+                        <!-- Info Section -->
+                        <div class="col-md-9">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Nombre de la Empresa</label>
+                                    <input type="text" class="form-control" @bind="businessName" placeholder="Nombre que verán los usuarios" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Teléfono de Contacto</label>
+                                    <input type="text" class="form-control" @bind="businessPhone" placeholder="+56 9 ..." />
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label fw-bold">Dirección Física</label>
+                                    <input type="text" class="form-control" @bind="businessAddress" placeholder="Calle, Ciudad, Región" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Correo Electrónico</label>
+                                    <input type="email" class="form-control" @bind="businessEmail" placeholder="contacto@empresa.com" />
+                                </div>
+                                <div class="col-md-6 align-self-end">
+                                    <button class="btn btn-info text-white w-100 fw-bold" @onclick="GuardarBranding" disabled="@_isSavingBranding">
+                                        @if (_isSavingBranding)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                            <span>Guardando...</span>
+                                        }
+                                        else
+                                        {
+                                            <span><i class="bi bi-save-fill me-2"></i> Guardar Identidad</span>
+                                        }
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    @if (!string.IsNullOrEmpty(_brandingMessage))
+                    {
+                        <div class="alert alert-success mt-3 py-2 animate__animated animate__fadeIn">
+                            <i class="bi bi-check-circle-fill me-2"></i> @_brandingMessage
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row g-4 mt-2 mb-5">
+
         <div class="col-md-12">
             <div class="card shadow-sm border-dark">
                 <div class="card-header bg-dark text-white fw-bold">
@@ -224,6 +305,15 @@
     private string _rawHex = "";
     private string? _hexResult;
 
+    // Branding
+    private string businessName = "";
+    private string businessAddress = "";
+    private string businessEmail = "";
+    private string businessPhone = "";
+    private string businessLogoBase64 = "";
+    private bool _isSavingBranding = false;
+    private string? _brandingMessage;
+
     protected override async Task OnInitializedAsync()
     {
         balanzas = await DbContext.Balanzas.ToListAsync();
@@ -231,6 +321,13 @@
         
         var setting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "ImportSeparator");
         separatorValue = setting?.Value ?? ";";
+
+        // Cargar Branding
+        businessName = BrandingService.BusinessName;
+        businessAddress = BrandingService.BusinessAddress;
+        businessEmail = BrandingService.BusinessEmail;
+        businessPhone = BrandingService.BusinessPhone;
+        businessLogoBase64 = BrandingService.BusinessLogoBase64;
     }
 
     private void SeleccionarBalanza(Balanza b)
@@ -327,5 +424,72 @@
         _hexResult = await DigiService.SendRawHexAsync(balanzaActual, _rawHex);
         _isSyncing = false;
         StateHasChanged();
+    }
+
+    private async Task OnLogoSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        // Validar tamaño (máx 512KB para no saturar SQLite)
+        if (file.Size > 512 * 1024)
+        {
+            await JS.InvokeVoidAsync("alert", "El logo es demasiado pesado. Máximo 512KB.");
+            return;
+        }
+
+        using var stream = file.OpenReadStream(512 * 1024);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        businessLogoBase64 = Convert.ToBase64String(ms.ToArray());
+    }
+
+    private async Task GuardarBranding()
+    {
+        _isSavingBranding = true;
+        _brandingMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var data = new Dictionary<string, string>
+            {
+                { "BusinessName", businessName },
+                { "BusinessAddress", businessAddress },
+                { "BusinessEmail", businessEmail },
+                { "BusinessPhone", businessPhone },
+                { "BusinessLogo", businessLogoBase64 }
+            };
+
+            foreach (var kvp in data)
+            {
+                var setting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == kvp.Key);
+                if (setting == null)
+                {
+                    DbContext.AppSettings.Add(new AppSetting { Key = kvp.Key, Value = kvp.Value ?? "" });
+                }
+                else
+                {
+                    setting.Value = kvp.Value ?? "";
+                }
+            }
+
+            await DbContext.SaveChangesAsync();
+            await BrandingService.RefreshAsync();
+            
+            _brandingMessage = "Identidad corporativa actualizada correctamente.";
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "Error al guardar branding: " + ex.Message);
+        }
+        finally
+        {
+            _isSavingBranding = false;
+            StateHasChanged();
+            await Task.Delay(3000);
+            _brandingMessage = null;
+            StateHasChanged();
+        }
     }
 }

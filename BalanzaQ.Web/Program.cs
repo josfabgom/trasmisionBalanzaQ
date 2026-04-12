@@ -15,6 +15,8 @@ try {
 
     builder.Services.AddScoped<DigiService>();
     builder.Services.AddScoped<ImportService>();
+    builder.Services.AddSingleton<BrandingService>();
+    builder.Services.AddSingleton<LicenseService>();
 
     var app = builder.Build();
 
@@ -85,7 +87,17 @@ try {
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
 
+    app.MapPost("/api/shutdown", () => {
+        // Ejecutar apagado de forma diferida para permitir que el cliente reciba el OK
+        Task.Run(async () => {
+            await Task.Delay(500);
+            Environment.Exit(0);
+        });
+        return Results.Ok();
+    });
+
     app.Run();
+
 } catch (Exception ex) {
     File.WriteAllText("fatal_error.txt", ex.ToString());
     throw;

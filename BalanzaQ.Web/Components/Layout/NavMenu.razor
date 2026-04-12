@@ -1,11 +1,13 @@
 @using BalanzaQ.Web.Data
+@using BalanzaQ.Web.Services
 @inject IJSRuntime JSRuntime
+@inject BrandingService BrandingService
+@implements IDisposable
 @rendermode InteractiveServer
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="">
-            <img src="logo.png" alt="Logo" style="height: 32px; border-radius: 6px;" class="me-2 shadow-sm" />
             <span class="fw-bold" style="letter-spacing: 0.5px;">Balanza<span class="text-info">Q</span></span>
         </a>
     </div>
@@ -51,7 +53,38 @@
             </NavLink>
         </div>
 
-        <div class="nav-item px-3 mt-4 border-top pt-3 text-center">
+        @if (BrandingService.BusinessName != "BalanzaQ" || !string.IsNullOrEmpty(BrandingService.BusinessAddress))
+        {
+            <div class="nav-item px-3 mt-4 border-top pt-3 text-start small opacity-75">
+                <div class="d-flex align-items-center mb-2">
+                    @if (!string.IsNullOrEmpty(BrandingService.BusinessLogoBase64))
+                    {
+                        <img src="data:image/png;base64,@BrandingService.BusinessLogoBase64" alt="Logo" style="height: 40px; border-radius: 4px;" class="me-2 bg-white p-1" />
+                    }
+                    <div class="text-white fw-bold" style="font-size: 0.85rem;">@BrandingService.BusinessName</div>
+                </div>
+                @if (!string.IsNullOrEmpty(BrandingService.BusinessAddress))
+                {
+                    <div class="text-muted" style="font-size: 0.7rem;">
+                        <i class="bi bi-geo-alt-fill me-1"></i> @BrandingService.BusinessAddress
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(BrandingService.BusinessPhone))
+                {
+                    <div class="text-muted" style="font-size: 0.7rem;">
+                        <i class="bi bi-telephone-fill me-1"></i> @BrandingService.BusinessPhone
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(BrandingService.BusinessEmail))
+                {
+                    <div class="text-muted" style="font-size: 0.7rem;">
+                        <i class="bi bi-envelope-fill me-1"></i> @BrandingService.BusinessEmail
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="nav-item px-3 mt-2 text-center border-top pt-2">
             <span class="text-muted small opacity-75" style="font-size: 0.75rem;">
                 <i class="bi bi-info-circle me-1"></i> Versión @AppVersion
             </span>
@@ -67,6 +100,16 @@
 
 @code {
     private string AppVersion => BalanzaQ.Web.Data.AppConstants.AppVersion;
+
+    protected override void OnInitialized()
+    {
+        BrandingService.OnBrandingChanged += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        BrandingService.OnBrandingChanged -= StateHasChanged;
+    }
 
     private async Task CerrarSistema()
     {

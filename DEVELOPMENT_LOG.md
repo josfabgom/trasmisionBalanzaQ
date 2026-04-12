@@ -126,5 +126,24 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 ### 🗓️ 2026-04-10 (v3.5.9)
 *   **Reversión de Código de Barras (Rollback):** Restauración desde backup funcional.
 
+### 🗓️ 2026-04-12 (v3.5.46)
+*   **Fix Portable Final:** Se corrigió la ausencia de archivos críticos en la carpeta `BalanzaQ_Portable_Final`.
+    *   Se creó `Iniciar_BalanzaQ.bat` para el arranque automático en el puerto 5200.
+    *   Se restauró la base de datos `balanzas.db` y el driver `digiwtcp.exe` faltante en la subcarpeta `Digi`.
+    *   Sincronización total de la versión portable con la lógica de la v3.5.45.
+
+### 🗓️ 2026-04-12 (v3.5.47)
+*   **Módulo de Branding Corporativo:** Se implementó un sistema de personalización de marca.
+    *   Carga de logo (Base64) e información de contacto (Nombre, Dirección, Email, Teléfono) desde Mantenimiento.
+    *   Integración dinámica del logo y nombre en NavMenu y Dashboard.
+    *   **Dashboard Banner Premium:** Se diseñó un encabezado estilizado con gradientes, sombras y badges para mostrar la dirección y contactos junto al logo.
+    *   Pie de página de contacto dinámico en el menú lateral.
+    *   Sincronización instantánea global tras edición.
+*   **Sistema de Licenciamiento por Hardware (HWID):**
+    *   Protección contra copia y distribución no autorizada vinculada a la Placa Madre y Disco Duro.
+    *   Pantalla de activación automática con generación de Machine UID.
+    *   Generador de licencias externo autónomo (`BalanzaQ.LicenceGenerator`).
+    *   Cifrado AES de seguridad industrial para los archivos de licencia.
+
 ---
-*Última actualización: 2026-04-12 (v3.5.45)*
+*Última actualización: 2026-04-12 (v3.5.47)*

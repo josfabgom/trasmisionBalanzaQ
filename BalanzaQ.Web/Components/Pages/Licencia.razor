@@ -1,0 +1,82 @@
+@page "/licencia"
+@rendermode InteractiveServer
+@using BalanzaQ.Web.Services
+@inject LicenseService LicenseService
+@inject NavigationManager NavigationManager
+
+<PageTitle>BalanzaQ - Licencia Requerida</PageTitle>
+
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 80vh;">
+    <div class="col-md-6">
+        <div class="card shadow-lg border-danger anim-fade-in">
+            <div class="card-header bg-danger text-white text-center py-3">
+                <i class="bi bi-shield-lock-fill display-4"></i>
+                <h3 class="mt-2 fw-bold">Licencia Requerida</h3>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-center text-muted mb-4">
+                    Este software está protegido y vinculado a este equipo. 
+                    @if (File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "license.lic")))
+                    {
+                        <span class="text-danger fw-bold d-block mt-2">La licencia actual ha expirado o no corresponde a este equipo.</span>
+                    }
+                    Para activarlo, proporcione el siguiente identificador al administrador.
+                </p>
+
+                <div class="bg-light p-3 rounded border mb-4 text-center">
+                    <label class="small text-muted d-block mb-1">IDENTIFICADOR DE ESTA PC (UID):</label>
+                    <div class="h5 font-monospace fw-bold text-dark text-break">@LicenseService.GetMachineUID()</div>
+                    <button class="btn btn-sm btn-outline-secondary mt-2" @onclick="CopyUID">
+                        <i class="bi bi-clipboard"></i> Copiar ID
+                    </button>
+                </div>
+
+                <div class="alert alert-info py-2 small">
+                    <i class="bi bi-info-circle-fill me-2"></i> 
+                    Una vez que reciba el archivo <strong>license.lic</strong>, colóquelo en la carpeta raíz de la aplicación y reinicie el sistema.
+                </div>
+                
+                <div class="d-grid mt-4">
+                    <button class="btn btn-primary btn-lg" @onclick="CheckLicense">
+                        <i class="bi bi-arrow-clockwise me-2"></i> Validar Licencia Ahora
+                    </button>
+                </div>
+            </div>
+            <div class="card-footer bg-light text-center py-2 xsmall text-muted">
+                BalanzaQ Licensing System v1.0
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject] private IJSRuntime JS { get; set; } = null!;
+
+    private async Task CopyUID()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", LicenseService.GetMachineUID());
+        await JS.InvokeVoidAsync("alert", "ID copiado al portapapeles.");
+    }
+
+    private void CheckLicense()
+    {
+        if (LicenseService.IsLicensed())
+        {
+            NavigationManager.NavigateTo("/", true);
+        }
+        else
+        {
+            // Forzar recarga física de la app para re-validar archivo en disco
+            NavigationManager.NavigateTo("/licencia", true);
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        // Si ya está licenciado, no debe estar aquí
+        if (LicenseService.IsLicensed())
+        {
+            NavigationManager.NavigateTo("/");
+        }
+    }
+}

@@ -1,5 +1,16 @@
-﻿<Router AppAssembly="typeof(Program).Assembly">
+@using BalanzaQ.Web.Services
+@inject LicenseService LicenseService
+@inject NavigationManager NavigationManager
+
+<Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
+        @{
+            bool isLicensePage = routeData.PageType.Name == "Licencia";
+            if (!LicenseService.IsLicensed() && !isLicensePage)
+            {
+                NavigationManager.NavigateTo("/licencia");
+            }
+        }
         <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
