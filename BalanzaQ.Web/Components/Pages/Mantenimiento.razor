@@ -182,11 +182,8 @@ else
                     </div>
                 }
             </div>
-        </div>
-    </div>
-                <div class="card-footer bg-light xsmall text-muted">
-                    Nota: Este separador se aplicará tanto a la importación manual como a la sincronización local automática.
-                </div>
+            <div class="card-footer bg-light xsmall text-muted py-3 ps-4">
+                Nota: Este separador se aplicará tanto a la importación manual como a la sincronización local automática.
             </div>
         </div>
     </div>
@@ -224,11 +221,11 @@ else
                             </div>
                             <div class="col-md-6 mb-2">
                                 <label class="form-label xsmall text-uppercase fw-bold text-muted mb-1">Teléfono</label>
-                                <input type="text" class="form-control border-0 bg-light rounded-3 py-2" @bind="businessPhone" placeholder="+56..." />
+                                <input type="text" class="form-control border-0 bg-light rounded-3 py-2" @bind="businessPhone" placeholder="+56 9" />
                             </div>
                             <div class="col-md-6 mb-2">
                                 <label class="form-label xsmall text-uppercase fw-bold text-muted mb-1">E-mail</label>
-                                <input type="email" class="form-control border-0 bg-light rounded-3 py-2" @bind="businessEmail" placeholder="info@..." />
+                                <input type="email" class="form-control border-0 bg-light rounded-3 py-2" @bind="businessEmail" placeholder="correo@@empresa.com" />
                             </div>
                             <div class="col-12">
                                 <label class="form-label xsmall text-uppercase fw-bold text-muted mb-1">Dirección</label>
@@ -282,7 +279,6 @@ else
             </div>
         </div>
     </div>
-</div>
 </div>
 
 @code {
