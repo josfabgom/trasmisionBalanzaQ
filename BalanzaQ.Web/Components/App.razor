@@ -25,6 +25,7 @@
 <body>
     <Routes />
     <script src="_framework/blazor.web.js"></script>
+    <script src="js/download.js"></script>
     <script>
         window.downloadTextFile = (fileName, textCont) => {
             const blob = new Blob([textCont], { type: 'text/plain' });
