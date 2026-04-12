@@ -35,18 +35,18 @@
                 <input type="text" class="form-control border-start-0 ps-0" placeholder="Buscar PLU o nombre..." @bind="terminoBusqueda" @bind:event="oninput" @onkeyup="FiltrarLista" />
             </div>
             
-            <div class="dropdown">
-                <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" disabled="@_isSyncing">
+            <div class="btn-group shadow-sm">
+                <button class="btn btn-primary px-3" @onclick="() => SincronizarSeleccionados(true)" disabled="@(!seleccionados.Any() || _isSyncing)">
                     @if (_isSyncing) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                    else { <i class="bi bi-broadcast me-1"></i> }
-                    Acciones de Envío
+                    else { <i class="bi bi-broadcast-pin me-1"></i> }
+                    Transmitir Seleccionados
+                </button>
+                <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" disabled="@_isSyncing">
+                    <span class="visually-hidden">Opciones extra</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow border-0">
-                    <li><button class="dropdown-item py-2" @onclick="() => SincronizarSeleccionados(true)" disabled="@(!seleccionados.Any())">
-                        <i class="bi bi-send-check me-2 text-success"></i>Transmitir Seleccionados
-                    </button></li>
                     <li><button class="dropdown-item py-2" @onclick="() => SincronizarSeleccionados(false)" disabled="@(!seleccionados.Any())">
-                        <i class="bi bi-file-earmark-arrow-down me-2 text-primary"></i>Generar y Descargar .DAT
+                        <i class="bi bi-file-earmark-arrow-down me-2 text-primary"></i>Descargar Archivos .DAT
                     </button></li>
                     <li><hr class="dropdown-divider"></li>
                     <li><button class="dropdown-item py-2" @onclick="SeleccionarFallidos">
