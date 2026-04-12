@@ -2,6 +2,16 @@ using BalanzaQ.Web.Security;
 
 namespace BalanzaQ.Web.Services;
 
+public class LicenseService
+{
+    private bool? _isValid;
+    private readonly string _licensePath;
+
+    public LicenseService()
+    {
+        _licensePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "license.lic");
+    }
+
     public DateTime? ExpiryDate { get; private set; }
 
     public bool IsLicensed()
