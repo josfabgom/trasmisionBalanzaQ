@@ -1,4 +1,8 @@
 @inherits LayoutComponentBase
+@using BalanzaQ.Web.Services
+@inject BrandingService BrandingService
+@inject IJSRuntime JS
+@implements IDisposable
 
 <div class="page">
     <div class="sidebar">
@@ -28,3 +32,38 @@
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        BrandingService.OnBrandingChanged += UpdateFavicon;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await SyncFavicon();
+        }
+    }
+
+    private async void UpdateFavicon()
+    {
+        await SyncFavicon();
+    }
+
+    private async Task SyncFavicon()
+    {
+        if (!string.IsNullOrEmpty(BrandingService.BusinessLogoBase64))
+        {
+            try {
+                await JS.InvokeVoidAsync("updateFavicon", BrandingService.BusinessLogoBase64);
+            } catch { }
+        }
+    }
+
+    public void Dispose()
+    {
+        BrandingService.OnBrandingChanged -= UpdateFavicon;
+    }
+}

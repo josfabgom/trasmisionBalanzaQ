@@ -2,10 +2,11 @@ namespace BalanzaQ.Web.Data;
 
 public static class AppConstants
 {
-    public const string AppVersion = "v3.5.70.3";
+    public const string AppVersion = "v3.5.70.4";
     public const string AppName = "BalanzaQ";
-    /*Última actualización: 2026-04-12 (v3.5.70.3)
-*   **Mejora de Branding Dashboard (v3.5.70.3):** Integración de logo optimizado, dirección y datos de contacto en el cabezal principal.
+    /*Última actualización: 2026-04-12 (v3.5.70.4)
+*   **Favicon Dinámico (v3.5.70.4):** Sincronización automática del logo corporativo con la pestaña del navegador.
+*   **Mejora de Branding Dashboard (v3.5.70.3):** Integración de logo optimizado...
 *   **Localización y Pulido Premium (v3.5.70):** Traducción completa al español de todos los módulos...
 *   **Rediseño Premium (v3.5.60):** Optimización total de las interfaces de Artículos y Auditoría. Se eliminó el modo simulación y se implementaron cabeceras y listas de alta fidelidad con efectos de hover y paletas suaves.
 *   **Auto-Verificación (v3.5.51):** El sistema ahora ejecuta de forma automática el comando RD al finalizar un lote para confirmar los datos físicamente.

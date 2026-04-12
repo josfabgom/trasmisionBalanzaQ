@@ -28,6 +28,16 @@
     <script src="_framework/blazor.web.js"></script>
     <script src="js/download.js"></script>
     <script>
+        window.updateFavicon = (base64Data) => {
+            let link = document.querySelector("link[rel~='icon']");
+            if (!link) {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                document.getElementsByTagName('head')[0].appendChild(link);
+            }
+            link.href = base64Data.startsWith('data:') ? base64Data : 'data:image/png;base64,' + base64Data;
+        }
+
         window.downloadTextFile = (fileName, textCont) => {
             const blob = new Blob([textCont], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
