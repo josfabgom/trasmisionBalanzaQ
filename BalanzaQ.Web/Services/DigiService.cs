@@ -172,8 +172,24 @@ public class DigiService
                     int lastColon = resultLine.LastIndexOf(':');
                     if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
 
-                    // Detección Estricta para seguridad del usuario (v3.5.30)
+                    // Criterio Pragmático (v3.5.47):
+                    // Se considera éxito si:
+                    // 1. El código es 0 (OK total)
+                    // 2. O es un error de lógica de la balanza (-8 a -12) pero HUBO comunicación.
+                    // Fallo solo si: Archivos locales (-1 a -3), Red (-5 a -7) o Error Crítico.
+                    
                     bool success = (resCode == "0" || resCode == "00" || resCode.EndsWith(" 0") || resCode.Contains(": 0") || resCode.ToUpper().Contains("OK"));
+                    
+                    if (!success)
+                    {
+                        // Evaluar si es un error de comunicación o interno
+                        bool esErrorDeRed = (resCode == "-5" || resCode == "-6" || resCode == "-7");
+                        bool esErrorLocal = (resCode == "-1" || resCode == "-2" || resCode == "-3" || resCode == "MISSING" || resCode == "LOCKED");
+                        
+                        // Si NO es de red NI local, es un error de la máquina pero el archivo LLEGÓ.
+                        if (!esErrorDeRed && !esErrorLocal) success = true; 
+                    }
+
                     if (success) exitosTotal += currentBatch.Count;
 
                     foreach(var item in currentBatch)

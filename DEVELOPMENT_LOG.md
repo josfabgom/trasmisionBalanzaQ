@@ -139,6 +139,9 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
     *   **Dashboard Banner Premium:** Se diseñó un encabezado estilizado con gradientes, sombras y badges para mostrar la dirección y contactos junto al logo.
     *   Pie de página de contacto dinámico en el menú lateral.
     *   Sincronización instantánea global tras edición.
+*   **Mejora de Auditoría (v3.5.48):**
+    *   Lógica permisiva: Se considera transmisión exitosa (OK) toda operación donde no se haya cortado la comunicación ni fallado archivos locales.
+    *   Los errores lógicos de balanza (ej: registro duplicado o advertencias menores) ya no marcan el lote como "Fallo", priorizando la confirmación de entrega de datos.
 *   **Sistema de Licenciamiento por Hardware (HWID):**
     *   Protección contra copia y distribución no autorizada vinculada a la Placa Madre y Disco Duro.
     *   Pantalla de activación automática con generación de Machine UID.

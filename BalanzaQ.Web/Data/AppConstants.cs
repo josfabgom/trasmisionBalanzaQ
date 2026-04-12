@@ -2,7 +2,7 @@ namespace BalanzaQ.Web.Data;
 
 public static class AppConstants
 {
-    public const string AppVersion = "v3.5.47";
+    public const string AppVersion = "v3.5.48";
     /*Última actualización: 2026-04-12 (v3.5.46)
 *   **Sincronización Individual de Alta Velocidad (v3.5.46):** Se revirtió el envío por lotes a envío individual (1 por 1) tras confirmar que la balanza SM-300 solo procesa el primer registro de cada archivo físico. Para compensar, se optimizaron las pausas de ráfaga a 50ms, logrando una velocidad mucho mayor que en versiones previas de envío individual.
 
