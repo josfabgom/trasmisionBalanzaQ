@@ -57,18 +57,7 @@
             </NavLink>
         </div>
 
-        @if (BrandingService.BusinessName != "BalanzaQ" || !string.IsNullOrEmpty(BrandingService.BusinessAddress))
-        {
-            <div class="nav-item px-3 mt-4 text-start small">
-                <div class="d-flex align-items-center mb-2 px-2 py-2 bg-white bg-opacity-10 rounded-3">
-                    @if (!string.IsNullOrEmpty(BrandingService.BusinessLogoBase64))
-                    {
-                        <img src="data:image/png;base64,@BrandingService.BusinessLogoBase64" alt="Logo" style="height: 32px; border-radius: 4px;" class="me-2 bg-white p-1 shadow-sm" />
-                    }
-                    <div class="text-white fw-bold xsmall text-uppercase truncate" style="max-width: 140px;">@BrandingService.BusinessName</div>
-                </div>
-            </div>
-        }
+        @* Sección de branding removida a petición del usuario *@
 
         @if (LicenseService.IsLicensed())
         {
