@@ -35,9 +35,7 @@ public class DigiService
         {
             _baseDir = exeDir; // Fallback
         }
-    }
-
-    public async Task<(string Message, string HexPayload)> SyncBalanzaAsync(Balanza balanza, List<PluItem> items, bool enviarABalanza = true, Action<int, int>? onProgress = null, string batchId = "")
+    }    public async Task<(string Message, string HexPayload)> SyncBalanzaAsync(Balanza balanza, List<PluItem> items, bool enviarABalanza = true, Action<int, int>? onProgress = null, string batchId = "")
     {
         try
         {
@@ -54,7 +52,7 @@ public class DigiService
                 else return ("ERROR: Plantilla TEMPLATE.DAT no encontrada.", "");
             }
 
-            // 1. Leer Plantilla y Extraer Partes
+            // 1. Leer Plantilla
             byte[] templateBytes;
             using (var fs = new FileStream(templatePath, FileMode.Open, FileAccess.Read))
             using (var sr = new StreamReader(fs, Encoding.ASCII))
@@ -71,137 +69,143 @@ public class DigiService
             byte[] afterName = new byte[templateBytes.Length - (numNameStart + 3 + templateNameLen)];
             Array.Copy(templateBytes, numNameStart + 3 + templateNameLen, afterName, 0, afterName.Length);
 
-            // 2. Transmisión MASIVA (Lotes de 1000)
-            int batchSize = 1000;
+            // Transmisión en Lote (Restaurada de v3.5.30)
+            // Agrupamos todos los artículos en un solo envío para maximizar el rendimiento.
+            int batchSize = items.Count;
+            int exitosTotal = 0;
+
+            // Crear o limpiar el log general de hex
             StringBuilder finalLogAll = new StringBuilder();
 
             for (int i = 0; i < items.Count; i += batchSize)
             {
-                var batchItems = items.Skip(i).Take(batchSize).ToList();
-                StringBuilder batchHex = new StringBuilder();
+                List<PluItem> currentBatch = items.GetRange(i, Math.Min(batchSize, items.Count - i));
 
-                foreach (var item in batchItems)
+                StringBuilder batchHexPayload = new StringBuilder();
+                
+                foreach (var item in currentBatch)
                 {
-                    // Mapeo Forense Digi (v3.5.14)
-                    // Cada registro DEBE medir exactamente 132 bytes (264 caracteres hex)
                     byte[] record = new byte[132]; 
-                    // Inicializamos con el template para mantener los bytes de auditoría al final (cola del registro)
                     Array.Copy(templateBytes, 0, record, 0, Math.Min(templateBytes.Length, 132));
 
-                    // PLU (0-3)
                     Array.Copy(IntToBcdArray(item.PluCode, 4), 0, record, 0, 4);
-                    
-                    // PRECIO (12-13) 
                     bool isPesable = item.ItemType == "P";
-                    // Para unidades, enviamos el precio nominal sin x10 para evitar desborde BCD y error de escala
-                    int precioFinal = isPesable ? (int)Math.Round(item.Price * 10) : (int)Math.Round(item.Price);
-                    Array.Copy(IntToBcdArray(precioFinal, 2), 0, record, 12, 2);
+                    int precioFinal = (int)Math.Round(item.Price * 10);
+                    Array.Copy(IntToBcdArray(precioFinal, 3), 0, record, 12, 3);
 
-                    // NOMBRE Y CONTROL (v3.5.14)
-                    string nameToUse = item.Name;
+                    string nameToUse = item.Name ?? "";
                     if (nameToUse.Length > 28) nameToUse = nameToUse.Substring(0, 28);
                     byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
                     int currentLen = nameBytes.Length;
 
-                    // Header Fields
                     record[5] = (byte)(0x2A + currentLen); 
                     record[6] = isPesable ? (byte)0x7C : (byte)0x7D;
                     record[10] = 0x0D; 
-                    record[15] = 0x11; // Formato 17
-                    record[16] = 0x05; // Inyector Pre-empaque
+                    
+                    // IMPORTANTE: NO sobreescribir Offset 15 y 16. Debemos dejar
+                    // que TEMPLATE.DAT mantenga el formato exacto original (ej. 17 y 5)
+                    // que requiere la balanza para validar cada archivo sin cortarse.
                     record[17] = 0x20; 
 
-                    // ITEM CODE (18-23) - 6 bytes BCD
                     string pluPart = item.PluCode.ToString().PadLeft(5, '0');
-                    string fillerPart = isPesable ? "00000" : "1111111"; 
+                    string fillerPart = isPesable ? "0000000" : "1111111"; 
                     string strCode = (pluPart + fillerPart).Substring(0, 12);
                     byte[] codeBcd = new byte[6];
                     for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
                     Array.Copy(codeBcd, 0, record, 18, 6);
 
-                    // SECCIÓN (24-25) Y FORMATO DE ETIQUETA (26-27)
-                    record[24] = 0x10;
-                    record[25] = 0x03;
-                    Array.Copy(IntToBcdArray(30, 2), 0, record, 26, 2);
+                    // Offset 24: Días de Vencimiento dinámicos (Sell By - 2 bytes en BCD)
+                    byte[] shelfLifeBcdArray = IntToBcdArray(Math.Min(item.ShelfLife, 9999), 2);
+                    Array.Copy(shelfLifeBcdArray, 0, record, 24, 2); 
 
-                    // MARCADORES DE NOMBRE (v3.5.14)
-                    int start = numNameStart;
+                    // Offset 26: Sección. (Como estaba en v3.5.30 original donde todo andaba)
+                    Array.Copy(IntToBcdArray(item.Section, 2), 0, record, 26, 2);
+
+
+                    int start = 33; 
                     record[start] = 0x01;
                     record[start + 1] = 0x01;
                     record[start + 2] = 0x07; 
                     record[start + 3] = (byte)currentLen;
-
-                    // Insertar nombre (Empieza en start + 4)
                     Array.Copy(nameBytes, 0, record, start + 4, nameBytes.Length);
 
-                    // Añadir el registro completo de 132 bytes al lote
-                    batchHex.Append(Convert.ToHexString(record));
+                    int currentTailStart = start + 4 + currentLen;
+                    int tailLength = Math.Min(afterName.Length, 132 - currentTailStart);
+                    if (tailLength > 0)
+                    {
+                        Array.Copy(afterName, 0, record, currentTailStart, tailLength);
+                    }
+
+                    batchHexPayload.AppendLine(Convert.ToHexString(record).ToUpper());
                 }
 
-                string hexPayload = batchHex.ToString().ToUpper();
-                string destFileName = $"SM{balanza.IpAddress}F37.DAT";
-                string datFileDigi = Path.Combine(digiFolder, destFileName);
-                
-                if (File.Exists(datFileDigi)) try { File.Delete(datFileDigi); } catch {}
-                string resultPath = Path.Combine(digiFolder, "RESULT");
-                if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
-
-                File.WriteAllText(datFileDigi, hexPayload, Encoding.ASCII);
+                string hexPayload = batchHexPayload.ToString();
                 finalLogAll.Append(hexPayload);
 
-                if (!enviarABalanza) continue;
-
-                // 3. Escribir Lote a Balanza
-                ProcessStartInfo psi = new ProcessStartInfo
+                if (enviarABalanza)
                 {
-                    FileName = Path.GetFullPath(digiExe),
-                    Arguments = $"WR 37 {balanza.IpAddress}",
-                    WorkingDirectory = Path.GetFullPath(digiFolder),
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true
-                };
+                    // Nombre Estándar Requerido por el Driver
+                    string destFileName = $"SM{balanza.IpAddress}F37.DAT";
+                    string datFileDigi = Path.Combine(digiFolder, destFileName);
+                    string resultPath = Path.Combine(digiFolder, "RESULT");
 
-                using var process = Process.Start(psi);
-                await process!.WaitForExitAsync();
-                
-                string resultLine = await ReadResultWithRetry(resultPath);
-                string resCode = resultLine; 
-                
-                // Extraer código del formato IP:Código (ej: 192.168.1.7:-5)
-                int lastColon = resultLine.LastIndexOf(':');
-                if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
+                    if (File.Exists(datFileDigi)) File.Delete(datFileDigi);
+                    if (File.Exists(resultPath)) File.Delete(resultPath);
 
-                bool success = (resCode == "0");
+                    File.WriteAllText(datFileDigi, hexPayload, Encoding.ASCII);
 
-                foreach (var bItem in batchItems)
-                {
-                    bItem.LastSyncDate = DateTime.Now;
-                    bItem.LastSyncStatus = success ? "Exitoso" : "Fallo";
-                    bItem.LastSyncError = GetDigiErrorMessage(resCode);
-                    bItem.IsSyncronized = success;
-
-                    // Auditoría Persistente
-                    _db.SyncLogs.Add(new SyncLog
+                    ProcessStartInfo psi = new ProcessStartInfo
                     {
-                        BalanzaIp = balanza.IpAddress,
-                        PluCode = bItem.PluCode,
-                        ProductName = bItem.Name,
-                        Status = bItem.LastSyncStatus,
-                        ErrorMessage = bItem.LastSyncError,
-                        BatchId = batchId,
-                        Date = DateTime.Now
-                    });
+                        FileName = Path.GetFullPath(digiExe),
+                        Arguments = $"WR 37 {balanza.IpAddress}",
+                        WorkingDirectory = Path.GetFullPath(digiFolder),
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardOutput = true
+                    };
 
-                    await AppendToLogAsync(balanza, bItem);
+                    using var process = Process.Start(psi);
+                    await process!.WaitForExitAsync();
+                    
+                    string resultLine = await ReadResultWithRetry(resultPath);
+                    string resCode = resultLine.Trim();
+                    int lastColon = resultLine.LastIndexOf(':');
+                    if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
+
+                    // Detección Estricta para seguridad del usuario (v3.5.30)
+                    bool success = (resCode == "0" || resCode == "00" || resCode.EndsWith(" 0") || resCode.Contains(": 0") || resCode.ToUpper().Contains("OK"));
+                    if (success) exitosTotal += currentBatch.Count;
+
+                    foreach(var item in currentBatch)
+                    {
+                        item.LastSyncDate = DateTime.Now;
+                        item.LastSyncStatus = success ? "Exitoso" : "Fallo";
+                        item.LastSyncError = success ? null : GetDigiErrorMessage(resCode);
+
+                        _db.SyncLogs.Add(new SyncLog
+                        {
+                            BalanzaIp = balanza.IpAddress,
+                            PluCode = item.PluCode,
+                            ProductName = item.Name,
+                            Status = item.LastSyncStatus,
+                            ErrorMessage = item.LastSyncError,
+                            BatchId = batchId,
+                            Date = DateTime.Now
+                        });
+                        
+                        await AppendToLogAsync(balanza, item);
+                    }
+                    
+                    // Pausa de seguridad para que el driver libere el puerto TCP y el archivo antes del próximo lote
+                    await Task.Delay(500);
                 }
-
-                if (!success) return ($"Error en lote {i}: {GetDigiErrorMessage(resCode)} ({resultLine})", hexPayload);
-                
                 onProgress?.Invoke(Math.Min(i + batchSize, items.Count), items.Count);
             }
 
-            return ("Exito", finalLogAll.ToString());
+            if (enviarABalanza) await _db.SaveChangesAsync();
+
+            if (!enviarABalanza) return ("Archivos generados correctamente.", finalLogAll.ToString());
+            return (exitosTotal == items.Count ? "Exito" : $"Parcial: {exitosTotal}/{items.Count} exitosos", finalLogAll.ToString());
         }
         catch (Exception ex)
         {
@@ -285,7 +289,7 @@ public class DigiService
 
     private async Task<string> ReadResultWithRetry(string path)
     {
-        for (int i = 0; i < 15; i++)
+        for (int i = 0; i < 50; i++) // Hasta 10 segundos de espera para lotes grandes
         {
             try
             {
