@@ -2,6 +2,7 @@
 @using BalanzaQ.Web.Services
 @inject IJSRuntime JSRuntime
 @inject BrandingService BrandingService
+@inject LicenseService LicenseService
 @implements IDisposable
 @rendermode InteractiveServer
 
@@ -81,6 +82,19 @@
                         <i class="bi bi-envelope-fill me-1"></i> @BrandingService.BusinessEmail
                     </div>
                 }
+            </div>
+        }
+
+        @if (LicenseService.IsLicensed())
+        {
+            <div class="nav-item px-3 mt-2 text-start">
+                <div class="text-success small d-flex flex-column" style="font-size: 0.7rem; line-height: 1.2;">
+                    <span class="fw-bold"><i class="bi bi-patch-check-fill me-1"></i> Software Licenciado</span>
+                    @if (LicenseService.ExpiryDate.HasValue)
+                    {
+                        <span class="text-muted">Vence: @LicenseService.ExpiryDate.Value.ToString("dd/MM/yyyy")</span>
+                    }
+                </div>
             </div>
         }
 

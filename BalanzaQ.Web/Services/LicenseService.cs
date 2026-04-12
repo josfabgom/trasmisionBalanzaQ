@@ -2,15 +2,7 @@ using BalanzaQ.Web.Security;
 
 namespace BalanzaQ.Web.Services;
 
-public class LicenseService
-{
-    private bool? _isValid;
-    private readonly string _licensePath;
-
-    public LicenseService()
-    {
-        _licensePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "license.lic");
-    }
+    public DateTime? ExpiryDate { get; private set; }
 
     public bool IsLicensed()
     {
@@ -48,6 +40,7 @@ public class LicenseService
             // Validar fecha de expiración
             if (DateTime.TryParseExact(dateStr, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime expiryDate))
             {
+                ExpiryDate = expiryDate;
                 _isValid = DateTime.Now.Date <= expiryDate.Date;
             }
             else
