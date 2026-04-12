@@ -298,26 +298,20 @@
 @code {
     private List<PluItem> todosArticulos = new();
     private List<PluItem> listaFiltrada = new();
-    private string terminoBusqueda = "";
-
+    private string? terminoBusqueda;
     private string? Mensaje;
-    private string ClaseAlerta = "alert-success";
+    private string ClaseAlerta = "alert-info";
     private bool _isSyncing = false;
     private int _currentProgress = 0;
+    private int _totalProgress = 0;
+    private string _progressText = "";
     private HashSet<int> seleccionados = new();
     private PluItem Model = new();
     private PluItem PreviewModel = new();
     private bool ShowModal = false;
     private bool ShowPreviewModal = false;
-    private int _currentProgress = 0;
-    private int _totalProgress = 0;
-    private string _progressText = "";
-    private string? Mensaje;
-    private string ClaseAlerta = "alert-info";
-    private string? terminoBusqueda;
     private string? lastGeneratedHex;
     private string? hexBueno;
-    private bool _isSyncing = false;
 
     private int GetProgressPercentage() => _totalProgress > 0 ? (int)((double)_currentProgress / _totalProgress * 100) : 0;
 
