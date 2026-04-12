@@ -419,7 +419,7 @@
             foreach (var b in balanzas)
             {
                 balanzaIndex++;
-                _progressText = $"Conectando con balanza {b.IpAddress} ({balanzaIndex}/{balanzas.Count})...";
+                _progressText = $"Conectando con {b.IpAddress} ({balanzaIndex}/{balanzas.Count})...";
                 StateHasChanged();
 
                 var res = await DigiService.SyncBalanzaAsync(b, articulosSeleccionados, enviarABalanza && !simulateMode, (current, total) => {
@@ -430,15 +430,19 @@
 
                 b.LastSyncDate = DateTime.Now;
                 b.LastSyncStatus = simulateMode ? "Simulado (OK)" : res.Message;
-                lastGeneratedHex = res.HexPayload;
-
-                if (res.Message.Contains("Exito") || res.Message.Contains("Generado") || (simulateMode && !string.IsNullOrEmpty(res.HexPayload)))
+                
+                if (res.Message.Contains("Exito", StringComparison.OrdinalIgnoreCase) || 
+                    res.Message.Contains("exitosos", StringComparison.OrdinalIgnoreCase) || 
+                    res.Message.Contains("generad", StringComparison.OrdinalIgnoreCase) || 
+                    (simulateMode && !string.IsNullOrEmpty(res.HexPayload)))
                 {
                     exitos++;
-                    if (!enviarABalanza || simulateMode)
+                    
+                    if (!enviarABalanza && !string.IsNullOrEmpty(res.HexPayload))
                     {
-                        string fileName = $"SM{b.IpAddress}F37_{(simulateMode ? "SIM" : "SEL")}.DAT";
-                        await JS.InvokeVoidAsync("downloadTextFile", fileName, res.HexPayload);
+                        var bytes = System.Text.Encoding.ASCII.GetBytes(res.HexPayload);
+                        using var streamRef = new DotNetStreamReference(new MemoryStream(bytes));
+                        await JS.InvokeVoidAsync("downloadFileFromStream", $"SM{b.IpAddress}F37.DAT", streamRef);
                     }
                 }
             }
