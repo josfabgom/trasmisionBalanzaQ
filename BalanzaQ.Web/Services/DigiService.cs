@@ -172,22 +172,27 @@ public class DigiService
                     int lastColon = resultLine.LastIndexOf(':');
                     if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
 
-                    // Criterio Pragmático Refinado (v3.5.48):
+                    // Criterio Pragmático Refinado (v3.5.50):
                     // No es éxito SI Y SOLO SI es un error crítico (Red o Local).
+                    // EXCEPCIÓN: El error -2 (READ_FILE_ERR) a veces es falso si los PLU pasaron.
+                    // Lo marcaremos como éxito pero con una nota de "Pendiente Verificación".
                     bool esErrorDeRed = (resCode == "-5" || resCode == "-6" || resCode == "-7");
-                    bool esErrorLocal = (resCode == "-1" || resCode == "-2" || resCode == "-3" || resCode == "MISSING" || resCode == "LOCKED");
-                    bool esFalloCritico = esErrorDeRed || esErrorLocal;
+                    bool esErrorLocalCritico = (resCode == "-1" || resCode == "-3" || resCode == "MISSING" || resCode == "LOCKED");
+                    bool esErrorLecturaLocal = (resCode == "-2");
 
-                    bool success = !esFalloCritico; // Cualquier respuesta de la balanza (0 o códigos -8 a -12) se considera éxito de envío.
+                    bool success = !esErrorDeRed && !esErrorLocalCritico; 
                     
                     if (success) exitosTotal += currentBatch.Count;
 
                     foreach(var item in currentBatch)
                     {
                         item.LastSyncDate = DateTime.Now;
-                        item.LastSyncStatus = success ? "Exitoso" : "Fallo";
-                        // Mantener el mensaje de error si no fue un "0" perfecto, para que el usuario pueda auditar aunque esté en verde.
-                        item.LastSyncError = (resCode == "0" || resCode == "00") ? null : GetDigiErrorMessage(resCode);
+                        item.LastSyncStatus = success ? (esErrorLecturaLocal ? "Verificando" : "Exitoso") : "Fallo";
+                        
+                        if (esErrorLecturaLocal)
+                            item.LastSyncError = "Enviado con dudas (-2). Use Verificar Lote.";
+                        else
+                            item.LastSyncError = (resCode == "0" || resCode == "00") ? null : GetDigiErrorMessage(resCode);
 
                         _db.SyncLogs.Add(new SyncLog
                         {
@@ -218,6 +223,49 @@ public class DigiService
         {
             return ($"EXCEPTION: {ex.Message}", "");
         }
+    }
+
+    /// <summary>
+    /// Verifica si un PLU específico existe realmente en la balanza leyendo el archivo F37.
+    /// </summary>
+    public async Task<bool> VerifyPLUInScaleAsync(string ip, int pluCode)
+    {
+        try
+        {
+            string digiFolder = Path.Combine(_baseDir, "Digi");
+            string digiExe = Path.Combine(digiFolder, "digiwtcp.exe");
+            string destFileName = $"SM{ip}F37.DAT";
+            string datFile = Path.Combine(digiFolder, destFileName);
+
+            if (File.Exists(datFile)) File.Delete(datFile);
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = digiExe,
+                Arguments = $"RD 37 {ip}",
+                WorkingDirectory = digiFolder,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(psi);
+            await process!.WaitForExitAsync();
+
+            if (!File.Exists(datFile)) return false;
+
+            // El archivo RD de F37 suele ser Hexadecimal (texto ASCII)
+            string content = await File.ReadAllTextAsync(datFile);
+            string pluHexPrefix = pluCode.ToString().PadLeft(8, '0'); // BCD de 4 bytes (8 chars hex)
+
+            // Buscamos el PLU al inicio de cada registro de 132 bytes (264 chars hex)
+            for (int i = 0; i <= content.Length - 264; i += 264)
+            {
+                if (content.Substring(i, 8) == pluHexPrefix) return true;
+            }
+
+            return false;
+        }
+        catch { return false; }
     }
 
     public async Task<string> ExecuteMaintenanceCommandAsync(Balanza balanza, string command, int fileId)

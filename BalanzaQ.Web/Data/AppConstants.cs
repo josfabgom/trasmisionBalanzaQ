@@ -2,8 +2,12 @@ namespace BalanzaQ.Web.Data;
 
 public static class AppConstants
 {
-    public const string AppVersion = "v3.5.49";
-    /*Última actualización: 2026-04-12 (v3.5.46)
+    public const string AppVersion = "v3.5.50";
+    /*Última actualización: 2026-04-12 (v3.5.50)
+*   **Verificación Robusta (v3.5.50):** Implementación de "PLU Centinela" mediante comando RD para confirmar físicamente la presencia de datos en la balanza.
+*   **Gestión de Falsos -2:** Se reclasificó el error READ_FILE_ERR (-2) como "Verificando" para evitar falsos negativos en la interfaz de usuario.
+
+### 🗓️ 2026-04-12 (v3.5.46)
 *   **Sincronización Individual de Alta Velocidad (v3.5.46):** Se revirtió el envío por lotes a envío individual (1 por 1) tras confirmar que la balanza SM-300 solo procesa el primer registro de cada archivo físico. Para compensar, se optimizaron las pausas de ráfaga a 50ms, logrando una velocidad mucho mayor que en versiones previas de envío individual.
 
 ### 🗓️ 2026-04-12 (v3.5.46)
@@ -67,8 +71,8 @@ public static class AppConstants
 *   **Transmisión por Lotes con Newlines:** Se implementó un sistema de empaquetado de 50 artículos por conexión. La clave fue añadir un salto de línea (`\r\n`) entre registros hex de 132 bytes, lo que permite al driver procesar múltiples ítems en una sola ráfaga de red. Esto soluciona los fallos en transmisiones largas (como las de 573 artículos) y multiplica la velocidad por 50.
 
 ### 🗓️ 2026-04-11 (v3.5.24)
-    *   **Restauración Secuencial Robusta:** Se regresó al esquema de envío ítem por ítem debido a limitaciones físicas de la balanza para procesar múltiples registros por conexión. Se optimizó la velocidad reduciendo los retardos a 50ms y agrupando los cambios de base de datos al final del proceso, logrando el equilibrio ideal entre fiabilidad y rapidez.
+*   **Restauración Secuencial Robusta:** Se regresó al esquema de envío ítem por ítem debido a limitaciones físicas de la balanza para procesar múltiples registros por conexión. Se optimizó la velocidad reduciendo los retardos a 50ms y agrupando los cambios de base de datos al final del proceso, logrando el equilibrio ideal entre fiabilidad y rapidez.
 
-    ### 🗓️ 2026-04-11 (v3.5.21)
+### 🗓️ 2026-04-11 (v3.5.21)
     */
 }
