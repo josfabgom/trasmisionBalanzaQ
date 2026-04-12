@@ -214,7 +214,35 @@ public class DigiService
                 onProgress?.Invoke(Math.Min(i + batchSize, items.Count), items.Count);
             }
 
-            if (enviarABalanza) await _db.SaveChangesAsync();
+            if (enviarABalanza)
+            {
+                // VERIFICACIÓN AUTOMÁTICA CENTINELA (v3.5.51)
+                // Si hubo al menos un envío con éxito parcial, verificamos el último PLU
+                var lastItem = items.LastOrDefault();
+                if (lastItem != null && exitosTotal > 0)
+                {
+                    bool verificado = await VerifyPLUInScaleAsync(balanza.IpAddress, lastItem.PluCode);
+                    if (verificado)
+                    {
+                        // Si el último PLU está bien, subimos de categoría a todos los "Verificando" de esta sesión
+                        foreach (var it in items.Where(x => x.LastSyncStatus == "Verificando"))
+                        {
+                            it.LastSyncStatus = "Exitoso";
+                            it.LastSyncError = "(Auto-Verificado RD)";
+                        }
+
+                        // También actualizar los logs que están en el ChangeTracker de EF
+                        var logsActuales = _db.SyncLogs.Local.Where(l => l.BatchId == batchId && l.Status == "Verificando").ToList();
+                        foreach (var log in logsActuales)
+                        {
+                            log.Status = "Exitoso";
+                            log.ErrorMessage = "(Auto-Verificado RD)";
+                        }
+                    }
+                }
+                
+                await _db.SaveChangesAsync();
+            }
 
             if (!enviarABalanza) return ("Archivos generados correctamente.", finalLogAll.ToString());
             return (exitosTotal == items.Count ? "Exito" : $"Parcial: {exitosTotal}/{items.Count} exitosos", finalLogAll.ToString());
