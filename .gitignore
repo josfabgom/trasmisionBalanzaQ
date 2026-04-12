@@ -28,8 +28,12 @@ Portable/
 *.zip
 Digi/SM*F*.DAT
 **/*.DAT_2*
+**/*_SM*.DAT
+**/result
+**/SM*.DAT
 ~$*.docx
 Published_BalanzaQ/
 *.exe
 !Digi/digiwtcp.exe
 !TEMPLATE.DAT
+!**/TEMPLATE.DAT
