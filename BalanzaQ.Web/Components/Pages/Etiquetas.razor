@@ -10,72 +10,103 @@
 
 <PageTitle>Formatos de Etiqueta</PageTitle>
 
-<div class="container mt-4">
-    <h2>Gestión de Formatos de Etiqueta (F52)</h2>
-    <p class="text-muted">Aquí se muestran los archivos de configuración obtenidos de las balanzas (RD 52) o subidos manualmente para enviar (WR 52).</p>
-
-    @if (!string.IsNullOrEmpty(Mensaje))
-    {
-        <div class="alert alert-info alert-dismissible fade show" role="alert">
-            @Mensaje
-            <button type="button" class="btn-close" @onclick="() => Mensaje = null"></button>
+<div class="header-premium d-flex justify-content-between align-items-center anim-fade-in shadow-sm">
+    <div class="d-flex align-items-center">
+        <div class="icon-box-md bg-primary-soft text-primary me-3 shadow-sm">
+            <i class="bi bi-printer fs-3"></i>
         </div>
-    }
+        <div>
+            <h1 class="h4 mb-1 fw-bold text-dark">Formatos de Etiqueta</h1>
+            <p class="text-muted small mb-0">Gestione y previsualice los archivos F52 obtenidos de sus balanzas.</p>
+        </div>
+    </div>
+    <div class="text-end">
+        <button class="btn btn-outline-primary rounded-pill px-3 shadow-sm" @onclick="CargarArchivos">
+            <i class="bi bi-arrow-clockwise me-2"></i> Refrescar
+        </button>
+    </div>
+</div>
 
-    <div class="row">
-        <div class="col-md-7">
-            <div class="card mb-4 shadow-sm border-0 bg-white">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-folder2-open me-2"></i> Archivos locales (carpeta Digi)</span>
-                    <button class="btn btn-sm btn-outline-light" @onclick="CargarArchivos"><i class="bi bi-arrow-clockwise"></i></button>
-                </div>
-                <div class="card-body" style="max-height: 500px; overflow-y: auto;">
-                    @if (archivos.Any())
-                    {
-                        <div class="list-group list-group-flush">
-                            @foreach (var file in archivos)
-                            {
-                                <div class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent">
-                                    <div>
-                                        <i class="bi bi-file-earmark-binary text-primary me-2"></i>
-                                        <strong>@file.Name</strong>
-                                        <br />
-                                        <small class="text-muted">@( (file.Length / 1024.0).ToString("F2") ) KB | @file.LastWriteTime</small>
+@if (!string.IsNullOrEmpty(Mensaje))
+{
+    <div class="alert alert-info alert-dismissible fade show shadow-sm border-0 anim-fade-in mb-4" role="alert">
+        <i class="bi bi-info-circle-fill me-2"></i> @Mensaje
+        <button type="button" class="btn-close" @onclick="() => Mensaje = null"></button>
+    </div>
+}
+
+<div class="row g-4 anim-fade-in" style="animation-delay: 0.1s;">
+    <div class="col-lg-7">
+        <div class="card card-premium shadow-sm border-0 h-100">
+            <div class="card-header bg-white border-0 py-3 ps-4">
+                <h6 class="fw-bold mb-0 text-dark">Módulos F52 Locales</h6>
+            </div>
+            <div class="card-body p-0" style="max-height: 600px; overflow-y: auto;">
+                @if (archivos.Any())
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var file in archivos)
+                        {
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-4 py-3 border-0 border-bottom">
+                                <div class="d-flex align-items-center">
+                                    <div class="icon-box-sm bg-light text-primary me-3">
+                                        <i class="bi bi-file-earmark-binary"></i>
                                     </div>
-                                    <div class="btn-group">
-                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => Visualizar(file.Name)"><i class="bi bi-pencil-square"></i> Editar</button>
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(file.FullName)"><i class="bi bi-trash"></i></button>
+                                    <div>
+                                        <div class="fw-bold text-dark">@file.Name</div>
+                                        <div class="xsmall text-muted">@( (file.Length / 1024.0).ToString("F2") ) KB | Mod: @file.LastWriteTime.ToString("dd/MM HH:mm")</div>
                                     </div>
                                 </div>
-                            }
-                        </div>
-                    }
-                    else
-                    {
-                        <p class="py-4 text-center text-muted">No se encontraron archivos .DAT</p>
-                    }
-                </div>
+                                <div class="btn-group shadow-sm rounded-3 overflow-hidden" style="border: 1px solid #eee;">
+                                    <button class="btn btn-sm btn-white bg-white text-primary border-0" @onclick="() => Visualizar(file.Name)"><i class="bi bi-pencil-square"></i></button>
+                                    <button class="btn btn-sm btn-white bg-white text-danger border-0" @onclick="() => Eliminar(file.FullName)"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="bi bi-folder-x display-4 text-muted opacity-25"></i>
+                        <p class="text-muted mt-3">No se encontraron archivos en la carpeta Digi.</p>
+                    </div>
+                }
             </div>
         </div>
+    </div>
 
-        <div class="col-md-5">
-            <div class="card mb-4 shadow-sm border-0">
-                <div class="card-header bg-primary text-white"><i class="bi bi-upload me-2"></i> Cargar Archivo Nuevo</div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label small">Balanza de destino (para renombrar)</label>
-                        <select class="form-select" @bind="SelectedBalanzaIp">
-                            <option value="">-- Seleccionar --</option>
-                            @foreach (var b in balanzas)
-                            {
-                                <option value="@b.IpAddress">@b.Description (@b.IpAddress)</option>
-                            }
-                        </select>
-                    </div>
-                    <InputFile OnChange="UploadFile" class="form-control" />
-                    <button class="btn btn-primary w-100 mt-3" @onclick="EnviarABalanza" disabled="@string.IsNullOrEmpty(SelectedBalanzaIp)">
-                        <i class="bi bi-send me-1"></i> Enviar a Balanza
-                    </button>
+    <div class="col-lg-5">
+        <div class="card card-premium shadow-sm border-0 border-top border-primary border-4" style="border-top: 4px solid #0d6efd !important;">
+            <div class="card-header bg-white border-0 py-3 ps-4">
+                <h6 class="fw-bold mb-0 text-dark">Subir / Enviar Diseño</h6>
+            </div>
+            <div class="card-body p-4">
+                <div class="mb-4">
+                    <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Balanza de destino (IP)</label>
+                    <select class="form-select border-0 bg-light rounded-3 py-2" @bind="SelectedBalanzaIp">
+                        <option value="">-- Seleccionar Equipo --</option>
+                        @foreach (var b in balanzas)
+                        {
+                            <option value="@b.IpAddress">@b.Description (@b.IpAddress)</option>
+                        }
+                    </select>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Archivo .DAT</label>
+                    <InputFile OnChange="UploadFile" class="form-control border-0 bg-light rounded-3 py-2" />
+                </div>
+
+                <button class="btn btn-primary w-100 py-3 shadow-sm rounded-3" @onclick="EnviarABalanza" disabled="@string.IsNullOrEmpty(SelectedBalanzaIp)">
+                    <i class="bi bi-send-fill me-2"></i> Transmitir Formato F52
+                </button>
+                
+                <div class="mt-4 p-3 bg-primary-soft rounded-3">
+                    <small class="text-primary xsmall d-flex">
+                        <i class="bi bi-info-circle-fill me-3 fs-5"></i>
+                        <span>Este proceso enviará el diseño de etiqueta a la balanza seleccionada de forma inmediata.</span>
+                    </small>
                 </div>
             </div>
         </div>

@@ -10,170 +10,180 @@
 
 <PageTitle>Mantenimiento de Balanzas</PageTitle>
 
-<div class="container mt-4">
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <h2 class="display-6 fw-bold text-primary"><i class="bi bi-tools"></i> Centro de Mantenimiento Digi</h2>
-            <p class="text-muted">Gestión directa de memoria y respaldos para balanzas SM-100/300.</p>
+<div class="header-premium d-flex justify-content-between align-items-center anim-fade-in shadow-sm">
+    <div class="d-flex align-items-center">
+        <div class="icon-box-md bg-warning-soft text-warning me-3 shadow-sm">
+            <i class="bi bi-tools fs-3"></i>
+        </div>
+        <div>
+            <h1 class="h4 mb-1 fw-bold text-dark">Centro de Mantenimiento</h1>
+            <p class="text-muted small mb-0">Gestión directa de memoria, respaldos e identidad corporativa.</p>
         </div>
     </div>
+    <div class="text-end">
+        <span class="badge bg-secondary-soft text-secondary px-3 py-2 rounded-pill xsmall border border-secondary border-opacity-10">
+            <i class="bi bi-shield-lock me-1"></i> Modo Administrador
+        </span>
+    </div>
+</div>
 
-    @if (balanzas == null)
-    {
-        <div class="text-center p-5">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2">Cargando balanzas...</p>
-        </div>
-    }
-    else if (!balanzas.Any())
-    {
-        <div class="alert alert-warning">
-            <i class="bi bi-exclamation-triangle"></i> No hay balanzas configuradas. Ve a <a href="balanzas">Configuración</a>.
-        </div>
-    }
-    else
-    {
-        <div class="row g-4">
-            <div class="col-md-4">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-dark text-white fw-bold">
-                        1. Seleccionar Balanza
-                    </div>
-                    <div class="card-body">
-                        <div class="list-group">
-                            @foreach (var b in balanzas)
-                            {
-                                <button type="button" @onclick="() => SeleccionarBalanza(b)" 
-                                        class="list-group-item list-group-item-action @(balanzaActual?.Id == b.Id ? "active" : "")">
-                                    <div class="d-flex w-100 justify-content-between">
-                                        <h6 class="mb-1">@b.Description</h6>
-                                        <small>@(b.IsEnabled ? "Activa" : "Inactiva")</small>
-                                    </div>
-                                    <small class="d-block">IP: @b.IpAddress</small>
-                                </button>
-                            }
-                        </div>
+@if (balanzas == null)
+{
+    <div class="text-center p-5 anim-fade-in">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">Cargando equipos...</p>
+    </div>
+}
+else if (!balanzas.Any())
+{
+    <div class="alert alert-warning border-0 shadow-sm anim-fade-in mb-4">
+        <i class="bi bi-exclamation-triangle me-2"></i> No hay balanzas configuradas. Ve a <a href="balanzas" class="fw-bold">Configuración de Equipos</a>.
+    </div>
+}
+else
+{
+    <div class="row g-4 anim-fade-in" style="animation-delay: 0.1s;">
+        <!-- PANEL IZQUIERDO: SELECCION -->
+        <div class="col-lg-4">
+            <div class="card card-premium h-100 shadow-sm">
+                <div class="card-header bg-white border-0 py-3 ps-4">
+                    <h6 class="fw-bold mb-0 text-dark">1. Seleccionar Equipo</h6>
+                </div>
+                <div class="card-body p-3">
+                    <div class="list-group list-group-flush border rounded-3 overflow-hidden">
+                        @foreach (var b in balanzas)
+                        {
+                            <button type="button" @onclick="() => SeleccionarBalanza(b)" 
+                                    class="list-group-item list-group-item-action py-3 border-0 @(balanzaActual?.Id == b.Id ? "bg-primary text-white" : "")">
+                                <div class="d-flex w-100 justify-content-between align-items-center">
+                                    <h6 class="mb-0 fw-bold">@b.Description</h6>
+                                    @if(balanzaActual?.Id == b.Id) { <i class="bi bi-check-circle-fill"></i> }
+                                    else { <span class="badge bg-light text-dark xsmall">@b.IpAddress</span> }
+                                </div>
+                                <small class="d-block mt-1 @(balanzaActual?.Id == b.Id ? "text-white-50" : "text-muted")">
+                                     @(b.IsEnabled ? "Disponible para red" : "Fuera de red")
+                                </small>
+                            </button>
+                        }
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="col-md-8">
-                @if (balanzaActual != null)
-                {
-                    <div class="card shadow-sm border-warning h-100">
-                        <div class="card-header bg-warning text-dark fw-bold d-flex justify-content-between align-items-center">
-                            <span>2. Acciones Disponibles para: @balanzaActual.Description</span>
-                            <span class="badge bg-dark">@balanzaActual.IpAddress</span>
-                        </div>
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <div class="col-md-6 text-center border-end p-4">
-                                    <h5 class="card-title"><i class="bi bi-eraser-fill text-danger"></i> Limpieza de Tablas</h5>
-                                    <p class="small text-muted">Elimina registros directamente de la memoria de la balanza.</p>
-                                    <div class="d-grid gap-2">
-                                        <button class="btn btn-outline-danger" @onclick='() => EjecutarMantenimiento("DELFI", 37)' disabled="@_isSyncing">
-                                            Limpiar Tabla de PLUs (37)
-                                        </button>
-                                        <button class="btn btn-outline-danger" @onclick='() => EjecutarMantenimiento("DELFI", 32)' disabled="@(_isSyncing)">
-                                            Limpiar Departamentos (32)
-                                        </button>
-                                    </div>
-                                    <button class="btn btn-danger mt-3" @onclick="BorrarTodo" disabled="@_isSyncing">
-                                        <i class="bi bi-trash"></i> RESET MASTER (Todo)
+        <!-- PANEL DERECHO: ACCIONES -->
+        <div class="col-lg-8">
+            @if (balanzaActual != null)
+            {
+                <div class="card card-premium h-100 shadow-sm border-top border-warning border-4" style="border-top: 4px solid #ffc107 !important;">
+                    <div class="card-header bg-white border-0 py-3 ps-4 d-flex justify-content-between align-items-center">
+                        <h6 class="fw-bold mb-0 text-dark">2. Acciones Críticas: @balanzaActual.Description</h6>
+                        <span class="badge bg-dark rounded-pill">IP: @balanzaActual.IpAddress</span>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-4">
+                            <!-- Limpieza -->
+                            <div class="col-md-6 border-end pe-4">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="icon-box-sm bg-danger-soft text-danger me-2"><i class="bi bi-eraser-fill"></i></div>
+                                    <h6 class="fw-bold mb-0">Limpieza de Memoria</h6>
+                                </div>
+                                <p class="xsmall text-muted mb-3">Elimina registros físicos directamente de la balanza.</p>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-danger btn-sm text-start py-2 px-3" @onclick='() => EjecutarMantenimiento("DELFI", 37)' disabled="@_isSyncing">
+                                        <i class="bi bi-trash-fill me-2"></i> Borrar Tabla PLU (37)
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm text-start py-2 px-3" @onclick='() => EjecutarMantenimiento("DELFI", 32)' disabled="@_isSyncing">
+                                        <i class="bi bi-trash-fill me-2"></i> Borrar Departamentos (32)
+                                    </button>
+                                    <button class="btn btn-danger btn-sm py-2 px-3 mt-2" @onclick="BorrarTodo" disabled="@_isSyncing">
+                                        <i class="bi bi-exclamation-triangle-fill me-2"></i> RESET MASTER TOTAL
                                     </button>
                                 </div>
-
-                                <div class="col-md-6 text-center p-4">
-                                    <h5 class="card-title"><i class="bi bi-cloud-download-fill text-info"></i> Respaldos (Read)</h5>
-                                    <p class="small text-muted">Copia los datos de la balanza al servidor.</p>
-                                    <div class="d-grid gap-2">
-                                        <button class="btn btn-info text-white" @onclick='() => EjecutarMantenimiento("RD", 37)' disabled="@_isSyncing">
-                                            Leer Respaldo de PLUs (37)
-                                        </button>
-                                        <button class="btn btn-outline-info" @onclick='() => EjecutarMantenimiento("RD", 52)' disabled="@_isSyncing">
-                                            Leer Teclas Prefijadas (52)
-                                        </button>
-                                    </div>
-                                    
-                                    @if (!string.IsNullOrEmpty(_maintenanceResult) && _maintenanceResult.Contains("READ.DAT"))
-                                    {
-                                        <div class="mt-4 p-2 bg-light border rounded">
-                                            <p class="small mb-1">Archivo listo en servidor</p>
-                                            <button class="btn btn-sm btn-success w-100" @onclick="DescargarF37Read">
-                                                <i class="bi bi-download"></i> Descargar Local
-                                            </button>
-                                        </div>
-                                    }
-                                </div>
                             </div>
 
-                            @if (!string.IsNullOrEmpty(_maintenanceResult))
-                            {
-                                <div class="alert @_maintenanceClass mt-4 mb-0 animate__animated animate__fadeIn">
-                                    <div class="d-flex align-items-center">
-                                        @if (_isSyncing)
-                                        {
-                                            <div class="spinner-border spinner-border-sm me-3" role="status"></div>
-                                        }
-                                        else
-                                        {
-                                            <i class="bi bi-info-circle-fill me-3 fs-4"></i>
-                                        }
-                                        <div>@_maintenanceResult</div>
-                                    </div>
+                            <!-- Respaldo -->
+                            <div class="col-md-6 ps-4">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="icon-box-sm bg-info-soft text-info me-2"><i class="bi bi-cloud-download-fill"></i></div>
+                                    <h6 class="fw-bold mb-0">Respaldos y Lectura</h6>
                                 </div>
-                            }
+                                <p class="xsmall text-muted mb-3">Descarga una copia de la memoria actual del equipo.</p>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-info btn-sm text-white text-start py-2 px-3" @onclick='() => EjecutarMantenimiento("RD", 37)' disabled="@_isSyncing">
+                                        <i class="bi bi-database-down me-2"></i> Leer Respaldo PLU (37)
+                                    </button>
+                                    <button class="btn btn-outline-info btn-sm text-start py-2 px-3" @onclick='() => EjecutarMantenimiento("RD", 52)' disabled="@_isSyncing">
+                                        <i class="bi bi-printer-fill me-2"></i> Leer Teclas F52
+                                    </button>
+                                </div>
+                                
+                                @if (!string.IsNullOrEmpty(_maintenanceResult) && _maintenanceResult.Contains("READ.DAT"))
+                                {
+                                    <div class="mt-3 p-3 bg-success-soft rounded-3 border border-success border-opacity-10 anim-fade-in">
+                                        <div class="xsmall text-success fw-bold mb-2">Respaldo preparado con éxito</div>
+                                        <button class="btn btn-success btn-sm w-100" @onclick="DescargarF37Read">
+                                            <i class="bi bi-download me-2"></i> Descargar Localmente
+                                        </button>
+                                    </div>
+                                }
+                            </div>
                         </div>
-                        <div class="card-footer bg-light xsmall">
-                            <i class="bi bi-shield-exclamation text-warning"></i> 
-                            Cuidado: Las operaciones de borrado son irreversibles en la balanza. Asegúrese de tener un respaldo antes de continuar.
+
+                        @if (!string.IsNullOrEmpty(_maintenanceResult))
+                        {
+                            <div class="alert @_maintenanceClass mt-4 mb-0 border-0 shadow-sm anim-fade-in">
+                                <div class="d-flex align-items-center">
+                                    @if (_isSyncing) { <div class="spinner-border spinner-border-sm me-3"></div> }
+                                    else { <i class="bi bi-info-circle-fill me-3 fs-5"></i> }
+                                    <div class="xsmall fw-medium">@_maintenanceResult</div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="card card-premium h-100 bg-light border-0 d-flex align-items-center justify-content-center text-muted">
+                    <div class="text-center opacity-50">
+                        <i class="bi bi-arrow-left-circle display-4"></i>
+                        <h6 class="mt-3">Selecciona una balanza para realizar acciones.</h6>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<div class="row g-4 mt-2 mb-4 anim-fade-in" style="animation-delay: 0.2s;">
+    <div class="col-xl-6">
+        <div class="card card-premium shadow-sm border-0 border-start border-primary border-4" style="border-left: 4px solid #0d6efd !important;">
+            <div class="card-header bg-white border-0 py-3 ps-4">
+                <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-gear-fill me-2 text-primary"></i>Configuración de Importación</h6>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-7">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Separador de Columnas (.DAT)</label>
+                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-distribute-vertical text-primary"></i></span>
+                            <input type="text" class="form-control border-0 bg-light" @bind="separatorValue" maxlength="5" placeholder="Ej: ; o , o |" />
                         </div>
                     </div>
-                }
-                else
-                {
-                    <div class="card h-100 bg-light border-0 d-flex align-items-center justify-content-center text-muted">
-                        <div class="text-center">
-                            <i class="bi bi-arrow-left-circle display-1 opacity-25"></i>
-                            <h5 class="mt-3">Selecciona una balanza del panel izquierdo para comenzar.</h5>
-                        </div>
+                    <div class="col-md-5">
+                        <button class="btn btn-primary w-100 py-2 shadow-sm" @onclick="GuardarConfiguracion">
+                            <i class="bi bi-save me-2"></i> Guardar
+                        </button>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(configMessage)) {
+                    <div class="alert alert-success py-2 px-3 mt-3 mb-0 xsmall border-0 shadow-sm anim-fade-in">
+                        <i class="bi bi-check-circle-fill me-2"></i> @configMessage
                     </div>
                 }
             </div>
         </div>
-    }
-
-    <div class="row g-4 mt-2 mb-5">
-        <div class="col-md-12">
-            <div class="card shadow-sm border-primary anim-fade-in">
-                <div class="card-header bg-primary text-white fw-bold">
-                    <i class="bi bi-gear-fill me-2"></i> Configuración de Importación de Datos
-                </div>
-                <div class="card-body p-4">
-                    <div class="row align-items-end">
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Separador de Columnas (.DAT)</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light"><i class="bi bi-distribute-vertical"></i></span>
-                                <input type="text" class="form-control border-primary" @bind="separatorValue" maxlength="5" placeholder="Ej: ; o , o |" />
-                            </div>
-                            <small class="text-muted">Actual: <span class="badge bg-light text-dark">@(string.IsNullOrEmpty(separatorValue) ? "Vacío" : separatorValue)</span></small>
-                        </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-primary w-100" @onclick="GuardarConfiguracion">
-                                <i class="bi bi-save me-2"></i> Guardar Configuración
-                            </button>
-                        </div>
-                        <div class="col-md-5">
-                            @if (!string.IsNullOrEmpty(configMessage))
-                            {
-                                <div class="alert alert-success py-2 mb-0 animate__animated animate__fadeIn">
-                                    <i class="bi bi-check-circle me-2"></i> @configMessage
-                                </div>
-                            }
-                        </div>
-                    </div>
-                </div>
+    </div>
                 <div class="card-footer bg-light xsmall text-muted">
                     Nota: Este separador se aplicará tanto a la importación manual como a la sincronización local automática.
                 </div>
@@ -181,113 +191,98 @@
         </div>
     </div>
     
-    <div class="row g-4 mt-2 mb-4">
-        <div class="col-md-12">
-            <div class="card shadow-sm border-info anim-fade-in">
-                <div class="card-header bg-info text-white fw-bold">
-                    <i class="bi bi-person-badge-fill me-2"></i> Identidad Corporativa & Branding
-                </div>
-                <div class="card-body p-4">
-                    <div class="row g-4">
-                        <!-- Logo Section -->
-                        <div class="col-md-3 text-center border-end">
-                            <label class="form-label fw-bold d-block">Logo de Empresa</label>
-                            <div class="mb-3 position-relative">
-                                @if (!string.IsNullOrEmpty(businessLogoBase64))
-                                {
-                                    <div class="p-2 border rounded bg-white shadow-sm mb-2" style="height: 120px; display: flex; align-items: center; justify-content: center;">
-                                        <img src="data:image/png;base64,@businessLogoBase64" class="img-fluid" style="max-height: 100px;" alt="Logo Preview" />
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="p-2 border border-dashed rounded bg-light mb-2 d-flex align-items-center justify-content-center" style="height: 120px;">
-                                        <i class="bi bi-image text-muted display-4"></i>
-                                    </div>
-                                }
-                                <label for="logoInput" class="btn btn-outline-info btn-sm w-100">
-                                    <i class="bi bi-upload"></i> Subir Logo
-                                </label>
-                                <InputFile id="logoInput" OnChange="OnLogoSelected" accept="image/png,image/jpeg" style="display: none;" />
-                            </div>
-                            <small class="text-muted d-block">Formato: PNG/JPG (Recomendado: 200x200px)</small>
+    <div class="col-xl-6">
+        <div class="card card-premium shadow-sm border-0 h-100">
+            <div class="card-header bg-white border-0 py-3 ps-4">
+                <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-person-badge-fill me-2 text-info"></i>Identidad Corporativa</h6>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-4 text-center border-end pe-3">
+                        <div class="mb-3">
+                            <label class="form-label xsmall text-uppercase fw-bold text-muted d-block mb-3">Logo Empresa</label>
+                            @if (!string.IsNullOrEmpty(businessLogoBase64)) {
+                                <div class="p-3 bg-light rounded-4 mb-3 d-flex align-items-center justify-content-center shadow-inner" style="height: 140px;">
+                                    <img src="data:image/png;base64,@businessLogoBase64" class="img-fluid" style="max-height: 100px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.1));" alt="Logo" />
+                                </div>
+                            } else {
+                                <div class="p-3 bg-light rounded-4 mb-3 d-flex align-items-center justify-content-center border-dashed" style="height: 140px; border: 2px dashed #ddd;">
+                                    <i class="bi bi-image text-muted display-4 opacity-25"></i>
+                                </div>
+                            }
+                            <label for="logoInput" class="btn btn-outline-info btn-sm w-100 rounded-pill py-2">
+                                <i class="bi bi-upload me-1"></i> Cambiar Imagen
+                            </label>
+                            <InputFile id="logoInput" OnChange="OnLogoSelected" accept="image/png,image/jpeg" style="display: none;" />
                         </div>
-
-                        <!-- Info Section -->
-                        <div class="col-md-9">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">Nombre de la Empresa</label>
-                                    <input type="text" class="form-control" @bind="businessName" placeholder="Nombre que verán los usuarios" />
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">Teléfono de Contacto</label>
-                                    <input type="text" class="form-control" @bind="businessPhone" placeholder="+56 9 ..." />
-                                </div>
-                                <div class="col-md-12">
-                                    <label class="form-label fw-bold">Dirección Física</label>
-                                    <input type="text" class="form-control" @bind="businessAddress" placeholder="Calle, Ciudad, Región" />
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">Correo Electrónico</label>
-                                    <input type="email" class="form-control" @bind="businessEmail" placeholder="contacto@empresa.com" />
-                                </div>
-                                <div class="col-md-6 align-self-end">
-                                    <button class="btn btn-info text-white w-100 fw-bold" @onclick="GuardarBranding" disabled="@_isSavingBranding">
-                                        @if (_isSavingBranding)
-                                        {
-                                            <span class="spinner-border spinner-border-sm me-2"></span>
-                                            <span>Guardando...</span>
-                                        }
-                                        else
-                                        {
-                                            <span><i class="bi bi-save-fill me-2"></i> Guardar Identidad</span>
-                                        }
-                                    </button>
-                                </div>
+                    </div>
+                    <div class="col-md-8 ps-3">
+                        <div class="row g-2">
+                            <div class="col-12 mb-2">
+                                <label class="form-label xsmall text-uppercase fw-bold text-muted mb-1">Razón Social</label>
+                                <input type="text" class="form-control border-0 bg-light rounded-3 py-2" @bind="businessName" placeholder="Nombre en reportes" />
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label xsmall text-uppercase fw-bold text-muted mb-1">Teléfono</label>
+                                <input type="text" class="form-control border-0 bg-light rounded-3 py-2" @bind="businessPhone" placeholder="+56..." />
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label xsmall text-uppercase fw-bold text-muted mb-1">E-mail</label>
+                                <input type="email" class="form-control border-0 bg-light rounded-3 py-2" @bind="businessEmail" placeholder="info@..." />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label xsmall text-uppercase fw-bold text-muted mb-1">Dirección</label>
+                                <input type="text" class="form-control border-0 bg-light rounded-3 py-2" @bind="businessAddress" placeholder="Ciudad, Región" />
                             </div>
                         </div>
                     </div>
-                    
-                    @if (!string.IsNullOrEmpty(_brandingMessage))
-                    {
-                        <div class="alert alert-success mt-3 py-2 animate__animated animate__fadeIn">
-                            <i class="bi bi-check-circle-fill me-2"></i> @_brandingMessage
-                        </div>
-                    }
                 </div>
+                <button class="btn btn-info text-white w-100 mt-4 py-2 shadow-sm fw-bold rounded-3" @onclick="GuardarBranding" disabled="@_isSavingBranding">
+                    @if (_isSavingBranding) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                    else { <i class="bi bi-save2-fill me-2"></i> }
+                    Actualizar Identidad
+                </button>
+                @if (!string.IsNullOrEmpty(_brandingMessage)) {
+                    <div class="alert alert-success mt-3 mb-0 xsmall border-0 shadow-sm py-2 anim-fade-in"><i class="bi bi-check-circle-fill me-2"></i> @_brandingMessage</div>
+                }
             </div>
         </div>
     </div>
+</div>
 
-    <div class="row g-4 mt-2 mb-5">
-
-        <div class="col-md-12">
-            <div class="card shadow-sm border-dark">
-                <div class="card-header bg-dark text-white fw-bold">
-                    <i class="bi bi-terminal-fill me-2"></i> Consola de Pruebas Hex (Trama Cruda)
-                </div>
-                <div class="card-body">
-                    <p class="text-muted small">Usa esta sección para enviar una trama hexadecimal manualmente a la balanza seleccionada (Archivo 37). Ideal para probar cambios en el pre-empaque.</p>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Trama Hexadecimal (PLU)</label>
-                        <textarea class="form-control font-monospace" rows="4" @bind="_rawHex" placeholder="Pega aquí el HEX (ej: 0000002200397D00CD210D...)"></textarea>
+<div class="row g-4 mb-5 anim-fade-in" style="animation-delay: 0.3s;">
+    <div class="col-12">
+        <div class="card card-premium shadow-sm border-0">
+            <div class="card-header bg-dark text-white border-0 py-3 ps-4 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0"><i class="bi bi-terminal-fill me-2"></i>Consola de Diagnóstico Hex (Trama Cruda - F37)</h6>
+                <span class="badge bg-warning text-dark xsmall">USO AVANZADO</span>
+            </div>
+            <div class="card-body p-4">
+                <div class="row">
+                    <div class="col-md-8">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Trama Hexadecimal del PLU</label>
+                        <textarea class="form-control bg-light border-0 py-3 px-3 rounded-4 font-monospace xsmall" rows="5" @bind="_rawHex" placeholder="Pega aquí la trama hexadecimal para transmitir directamente a la memoria física (Dirección 37)."></textarea>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <button class="btn btn-warning" @onclick="EnviarHexManual" disabled="@(_isSyncing || balanzaActual == null)">
-                            <i class="bi bi-send-fill me-2"></i> Enviar Trama Manual (F37)
+                    <div class="col-md-4 d-flex flex-column justify-content-center">
+                        <div class="p-3 bg-light rounded-4 mb-3">
+                            <p class="xsmall text-muted mb-0"><i class="bi bi-info-circle me-1 text-primary"></i> Utilice esta herramienta para validar transmisiones directas sin pasar por el generador de lotes.</p>
+                        </div>
+                        <button class="btn btn-warning w-100 py-3 shadow-sm rounded-4 fw-bold" @onclick="EnviarHexManual" disabled="@(_isSyncing || balanzaActual == null)">
+                            <i class="bi bi-send-plus-fill me-2"></i> Transmitir Trama
                         </button>
-                        @if (!string.IsNullOrEmpty(_hexResult))
-                        {
-                            <span class="badge @(_hexResult.Contains("Éxito") ? "bg-success" : "bg-danger") p-2 animate__animated animate__pulse">
-                                @_hexResult
-                            </span>
+                        @if (!string.IsNullOrEmpty(_hexResult)) {
+                            <div class="mt-3 text-center">
+                                <span class="badge @(_hexResult.Contains("Éxito") ? "bg-success-soft text-success" : "bg-danger-soft text-danger") p-3 w-100 rounded-4 border">
+                                    <i class="bi @(_hexResult.Contains("Éxito") ? "bi-check-circle" : "bi-x-circle") me-2"></i> @_hexResult
+                                </span>
+                            </div>
                         }
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 </div>
 
 @code {

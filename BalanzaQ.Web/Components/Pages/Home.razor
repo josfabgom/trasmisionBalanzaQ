@@ -12,136 +12,131 @@
 
 <PageTitle>BalanzaQ - Dashboard</PageTitle>
 
-<div class="container mt-4">
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card border-0 shadow-sm overflow-hidden" style="border-radius: 15px; background: linear-gradient(135deg, #ffffff 0%, #f1f4f9 100%);">
-                <div class="card-body p-0">
-                    <div class="row g-0 align-items-center">
-                        <div class="col-md-auto p-4 text-center" style="background: rgba(13, 110, 253, 0.03); min-width: 200px;">
-                            @if (!string.IsNullOrEmpty(BrandingService.BusinessLogoBase64))
-                            {
-                                <img src="data:image/png;base64,@BrandingService.BusinessLogoBase64" class="img-fluid animate__animated animate__fadeIn" style="max-height: 100px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));" alt="Logo" />
-                            }
-                            else
-                            {
-                                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center shadow" style="width: 80px; height: 80px;">
-                                    <i class="bi bi-shop display-6"></i>
-                                </div>
-                            }
-                        </div>
-                        <div class="col-md p-4">
-                            <h1 class="display-5 fw-bold text-primary mb-1">@BrandingService.BusinessName</h1>
-                            <p class="text-muted mb-3 fw-medium">Sistema de Transmisión Multi-Balanza Digi SM-300</p>
-                            
-                            <div class="d-flex flex-wrap gap-3 mt-2">
-                                @if (!string.IsNullOrEmpty(BrandingService.BusinessAddress))
-                                {
-                                    <span class="badge bg-white text-dark border shadow-sm px-3 py-2 rounded-pill">
-                                        <i class="bi bi-geo-alt-fill text-primary me-2"></i> @BrandingService.BusinessAddress
-                                    </span>
-                                }
-                                @if (!string.IsNullOrEmpty(BrandingService.BusinessPhone))
-                                {
-                                    <span class="badge bg-white text-dark border shadow-sm px-3 py-2 rounded-pill">
-                                        <i class="bi bi-telephone-fill text-success me-2"></i> @BrandingService.BusinessPhone
-                                    </span>
-                                }
-                                @if (!string.IsNullOrEmpty(BrandingService.BusinessEmail))
-                                {
-                                    <span class="badge bg-white text-dark border shadow-sm px-3 py-2 rounded-pill">
-                                        <i class="bi bi-envelope-at-fill text-info me-2"></i> @BrandingService.BusinessEmail
-                                    </span>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+<div class="header-premium d-flex justify-content-between align-items-center anim-fade-in shadow-sm">
+    <div class="d-flex align-items-center">
+        <div class="icon-box-md bg-primary-soft text-primary me-4 shadow-sm">
+             @if (!string.IsNullOrEmpty(BrandingService.BusinessLogoBase64)) {
+                <img src="data:image/png;base64,@BrandingService.BusinessLogoBase64" class="img-fluid" style="max-height: 38px;" alt="Logo" />
+             } else {
+                <i class="bi bi-shop fs-3"></i>
+             }
+        </div>
+        <div>
+            <h1 class="h3 mb-1 fw-bold text-dark">@BrandingService.BusinessName</h1>
+            <p class="text-muted small mb-0"><i class="bi bi-check2-all text-success me-1"></i> Sistema de Gestión y Transmisión de Balanzas Digi</p>
         </div>
     </div>
+    <div class="text-end d-none d-md-block">
+        <div class="text-uppercase xsmall text-muted fw-bold mb-1">Estado del Sistema</div>
+        <span class="badge bg-success-soft text-success px-3 py-2 rounded-pill border border-success border-opacity-10">
+            <i class="bi bi-patch-check-fill me-1"></i> Operativo
+        </span>
+    </div>
+</div>
 
-    @if (!string.IsNullOrEmpty(Mensaje))
-    {
-        <div class="alert @ClaseAlerta alert-dismissible fade show" role="alert">
-            @Mensaje
-            <button type="button" class="btn-close" @onclick="() => Mensaje = null"></button>
-        </div>
-    }
+@if (!string.IsNullOrEmpty(Mensaje))
+{
+    <div class="alert @ClaseAlerta alert-dismissible fade show shadow-sm border-0 anim-fade-in mb-4" role="alert">
+        <i class="bi bi-info-circle-fill me-2"></i> @Mensaje
+        <button type="button" class="btn-close" @onclick="() => Mensaje = null"></button>
+    </div>
+}
 
-    <div class="row g-4">
-        <div class="col-md-6">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body text-center">
-                    <h2 class="h1 mb-3">📦 @_totalArticulos</h2>
-                    <h5 class="card-title text-muted">Artículos Importados</h5>
-                    <label for="fileInput" class="btn btn-primary btn-lg mt-3 w-100 @(_isImporting ? "disabled" : "")">
-                        @if (_isImporting)
-                        {
-                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-                            <span> Importando...</span>
-                        }
-                        else
-                        {
-                            <span><i class="bi bi-cloud-download"></i> Seleccionar Módulo (.dat)</span>
-                        }
-                    </label>
-                    <InputFile id="fileInput" OnChange="ImportarDatos" accept=".dat,.txt,.csv" style="display: none;" disabled="@_isImporting" />
-                    <button class="btn btn-warning w-100 mt-2" @onclick="SincronizarLocal" disabled="@_isImporting">
-                        <i class="bi bi-arrow-repeat"></i> Sincronizar data.dat Local
-                    </button>
-                    <a href="/articulos" class="btn btn-outline-secondary w-100 mt-2">Gestionar Artículos</a>
+<div class="row g-4 anim-fade-in" style="animation-delay: 0.1s;">
+    <!-- CARD: GESTION DE ARCHIVOS -->
+    <div class="col-xl-6">
+        <div class="card card-premium h-100 p-2">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div>
+                        <h5 class="fw-bold mb-1">Módulo de Datos</h5>
+                        <p class="text-muted small">Importación y sincronización de artículos.</p>
+                    </div>
+                    <div class="display-6 fw-bold text-primary opacity-25">📦</div>
                 </div>
-            </div>
-        </div>
-        
-        <div class="col-md-6">
-            <div class="card h-100 shadow-sm border-primary">
-                <div class="card-body text-center text-primary">
-                    <h2 class="h1 mb-3">📡 @_balanzasActivas / @_totalBalanzas</h2>
-                    <h5 class="card-title text-muted">Balanzas Activas</h5>
-                    
-                    <button class="btn btn-success btn-lg mt-3 w-100" @onclick="() => SincronizarTodas(true)" disabled="@_isSyncing">
-                        @if (_isSyncing)
-                        {
-                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-                            <span> Transmitiendo...</span>
-                        }
-                        else
-                        {
-                            <span><i class="bi bi-broadcast"></i> Generar y Enviar a Balanzas</span>
-                        }
-                    </button>
-                    
-                    <div class="d-flex mt-2 gap-2">
-                        <button class="btn btn-outline-primary w-100" @onclick="() => SincronizarTodas(false)" disabled="@_isSyncing">
-                            <i class="bi bi-file-earmark-code"></i> Solo Generar Archivos DAT
+
+                <div class="text-center py-4 bg-light rounded-4 mb-4">
+                    <div class="display-4 fw-bold text-dark mb-0">@_totalArticulos</div>
+                    <div class="text-muted xsmall text-uppercase fw-bold">Productos en Memoria</div>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label for="fileInput" class="btn btn-primary w-100 py-2 @(_isImporting ? "disabled" : "")">
+                            @if (_isImporting) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                            else { <i class="bi bi-cloud-arrow-up me-2"></i> }
+                            Importar Módulo
+                        </label>
+                        <InputFile id="fileInput" OnChange="ImportarDatos" accept=".dat,.txt,.csv" style="display: none;" disabled="@_isImporting" />
+                    </div>
+                    <div class="col-md-6">
+                        <button class="btn btn-outline-primary w-100 py-2" @onclick="SincronizarLocal" disabled="@_isImporting">
+                            <i class="bi bi-arrow-repeat me-2"></i> Sync data.dat
                         </button>
-                        <a href="/balanzas" class="btn btn-outline-primary w-100">Configuración</a>
                     </div>
-
-                    @if (_isSyncing)
-                    {
-                        <div class="mt-4 p-3 border rounded bg-light shadow-sm animate__animated animate__fadeIn">
-                            <div class="d-flex justify-content-between mb-1">
-                                <small class="text-muted fw-bold">@_statusMessage</small>
-                                <small class="text-primary fw-bold">@_progressPercent%</small>
-                            </div>
-                            <div class="progress" style="height: 12px; border-radius: 6px; overflow: hidden;">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-gradient" 
-                                     role="progressbar" 
-                                     style="width: @_progressPercent%; background: linear-gradient(90deg, #0d6efd, #0dcaf0);" 
-                                     aria-valuenow="@_progressPercent" aria-valuemin="0" aria-valuemax="100"></div>
-                            </div>
-                            <div class="text-center mt-2">
-                                <small class="text-muted">Procesando @_currentStep de @_totalSteps etapas...</small>
-                            </div>
-                        </div>
-                    }
                 </div>
             </div>
         </div>
     </div>
+    
+    <!-- CARD: TRANSMISION -->
+    <div class="col-xl-6">
+        <div class="card card-premium h-100 p-2 border-start border-primary border-4" style="border-left: 4px solid #0d6efd !important;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div>
+                        <h5 class="fw-bold mb-1">Estado de Transmisión</h5>
+                        <p class="text-muted small">Estado actual de las balanzas configuradas.</p>
+                    </div>
+                    <div class="display-6 fw-bold text-primary opacity-25">📡</div>
+                </div>
+
+                <div class="text-center py-4 bg-primary-soft rounded-4 mb-4">
+                    <div class="display-4 fw-bold text-primary mb-0">@_balanzasActivas / @_totalBalanzas</div>
+                    <div class="text-muted xsmall text-uppercase fw-bold">Equipos Activos</div>
+                </div>
+
+                <div class="btn-group w-100 shadow-sm">
+                    <button class="btn btn-primary py-2 px-4 flex-grow-1" @onclick="() => SincronizarTodas(true)" disabled="@_isSyncing">
+                        @if (_isSyncing) { <span class="spinner-border spinner-border-sm me-2"></span><span>Procesando...</span> }
+                        else { <i class="bi bi-broadcast me-2"></i><span>Enviar a Balanzas</span> }
+                    </button>
+                    <button class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" disabled="@_isSyncing">
+                        <span class="visually-hidden">Opciones</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                        <li><button class="dropdown-item py-2" @onclick="() => SincronizarTodas(false)">
+                            <i class="bi bi-file-earmark-code me-2 text-primary"></i>Descargar Archivos DAT
+                        </button></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item py-2" href="/balanzas">
+                            <i class="bi bi-gear me-2 text-muted"></i>Configurar Equipos
+                        </a></li>
+                    </ul>
+                </div>
+
+                @if (_isSyncing)
+                {
+                    <div class="mt-4 p-3 bg-light rounded-4 shadow-sm anim-fade-in border">
+                        <div class="d-flex justify-content-between mb-2">
+                            <small class="text-dark fw-bold xsmall">@_statusMessage</small>
+                            <small class="text-primary fw-bold xsmall">@_progressPercent%</small>
+                        </div>
+                        <div class="progress" style="height: 8px; border-radius: 4px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                 role="progressbar" 
+                                 style="width: @_progressPercent%;" 
+                                 aria-valuenow="@_progressPercent" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="text-center mt-2">
+                            <small class="text-muted xsmall">Transmitiendo datos, por favor espere...</small>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
 </div>
 
 @code {

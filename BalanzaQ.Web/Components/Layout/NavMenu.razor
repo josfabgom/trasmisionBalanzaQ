@@ -9,7 +9,10 @@
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="">
-            <span class="fw-bold" style="letter-spacing: 0.5px;">Balanza<span class="text-info">Q</span></span>
+            <div class="bg-info-soft rounded-pill p-1 me-2" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                 <i class="bi bi-cpu text-info"></i>
+            </div>
+            <span class="fw-bold h5 mb-0" style="letter-spacing: 1px;">Balanza<span class="text-info">Q</span></span>
         </a>
     </div>
 </div>
@@ -17,98 +20,82 @@
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="flex-column">
+    <nav class="flex-column mt-3">
         <div class="nav-item px-3 mb-2">
-            <NavLink class="nav-link fs-6 btn-outline-primary rounded transition-all" href="" Match="NavLinkMatch.All">
-                <i class="bi bi-speedometer2 me-3 fs-5" aria-hidden="true"></i> Dashboard
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <i class="bi bi-grid-1x2 me-3 fs-5" aria-hidden="true"></i> Dashboard
             </NavLink>
         </div>
 
         <div class="nav-item px-3 mb-2">
-            <NavLink class="nav-link fs-6 btn-outline-primary rounded transition-all" href="articulos">
-                <i class="bi bi-tag-fill me-3 fs-5" aria-hidden="true"></i> Artículos (PLU)
+            <NavLink class="nav-link" href="articulos">
+                <i class="bi bi-box-seam me-3 fs-5" aria-hidden="true"></i> Artículos (PLU)
             </NavLink>
         </div>
 
         <div class="nav-item px-3 mb-2">
-            <NavLink class="nav-link fs-6 btn-outline-primary rounded transition-all" href="mantenimiento">
-                <i class="bi bi-tools me-3 fs-5" aria-hidden="true"></i> Mantenimiento
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3 mb-2">
-            <NavLink class="nav-link fs-6 btn-outline-primary rounded transition-all" href="balanzas">
+            <NavLink class="nav-link" href="balanzas">
                 <i class="bi bi-pc-display-horizontal me-3 fs-5" aria-hidden="true"></i> Balanzas Digi
             </NavLink>
         </div>
 
         <div class="nav-item px-3 mb-2">
-            <NavLink class="nav-link fs-6 btn-outline-primary rounded transition-all" href="etiquetas">
-                <i class="bi bi-layout-text-window-reverse me-3 fs-5" aria-hidden="true"></i> Formatos Etiqueta
+            <NavLink class="nav-link" href="etiquetas">
+                <i class="bi bi-printer me-3 fs-5" aria-hidden="true"></i> Formatos Etiqueta
             </NavLink>
         </div>
 
         <div class="nav-item px-3 mb-2">
-            <NavLink class="nav-link fs-6 btn-outline-primary rounded transition-all" href="auditoria">
-                <i class="bi bi-shield-check-fill me-3 fs-5" aria-hidden="true"></i> Auditoría Envío
+            <NavLink class="nav-link" href="auditoria">
+                <i class="bi bi-clipboard-pulse me-3 fs-5" aria-hidden="true"></i> Auditoría Envío
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3 mb-2">
+            <NavLink class="nav-link" href="mantenimiento">
+                <i class="bi bi-gear me-3 fs-5" aria-hidden="true"></i> Configuración
             </NavLink>
         </div>
 
         @if (BrandingService.BusinessName != "BalanzaQ" || !string.IsNullOrEmpty(BrandingService.BusinessAddress))
         {
-            <div class="nav-item px-3 mt-4 border-top pt-3 text-start small opacity-75">
-                <div class="d-flex align-items-center mb-2">
+            <div class="nav-item px-3 mt-4 text-start small">
+                <div class="d-flex align-items-center mb-2 px-2 py-2 bg-white bg-opacity-10 rounded-3">
                     @if (!string.IsNullOrEmpty(BrandingService.BusinessLogoBase64))
                     {
-                        <img src="data:image/png;base64,@BrandingService.BusinessLogoBase64" alt="Logo" style="height: 40px; border-radius: 4px;" class="me-2 bg-white p-1" />
+                        <img src="data:image/png;base64,@BrandingService.BusinessLogoBase64" alt="Logo" style="height: 32px; border-radius: 4px;" class="me-2 bg-white p-1 shadow-sm" />
                     }
-                    <div class="text-white fw-bold" style="font-size: 0.85rem;">@BrandingService.BusinessName</div>
+                    <div class="text-white fw-bold xsmall text-uppercase truncate" style="max-width: 140px;">@BrandingService.BusinessName</div>
                 </div>
-                @if (!string.IsNullOrEmpty(BrandingService.BusinessAddress))
-                {
-                    <div class="text-muted" style="font-size: 0.7rem;">
-                        <i class="bi bi-geo-alt-fill me-1"></i> @BrandingService.BusinessAddress
-                    </div>
-                }
-                @if (!string.IsNullOrEmpty(BrandingService.BusinessPhone))
-                {
-                    <div class="text-muted" style="font-size: 0.7rem;">
-                        <i class="bi bi-telephone-fill me-1"></i> @BrandingService.BusinessPhone
-                    </div>
-                }
-                @if (!string.IsNullOrEmpty(BrandingService.BusinessEmail))
-                {
-                    <div class="text-muted" style="font-size: 0.7rem;">
-                        <i class="bi bi-envelope-fill me-1"></i> @BrandingService.BusinessEmail
-                    </div>
-                }
             </div>
         }
 
         @if (LicenseService.IsLicensed())
         {
-            <div class="nav-item px-3 mt-2 text-start">
-                <div class="text-success small d-flex flex-column" style="font-size: 0.7rem; line-height: 1.2;">
-                    <span class="fw-bold"><i class="bi bi-patch-check-fill me-1"></i> Software Licenciado</span>
+            <div class="nav-item px-4 mt-2 mb-3">
+                <div class="text-success xsmall d-flex flex-column bg-success-soft p-2 rounded-3 border border-success border-opacity-25" style="line-height: 1.2;">
+                    <span class="fw-bold"><i class="bi bi-patch-check-fill me-1"></i> LICENCIA ACTIVA</span>
                     @if (LicenseService.ExpiryDate.HasValue)
                     {
-                        <span class="text-muted">Vence: @LicenseService.ExpiryDate.Value.ToString("dd/MM/yyyy")</span>
+                        <span class="text-white-50 mt-1">Vto: @LicenseService.ExpiryDate.Value.ToString("dd/MM/yyyy")</span>
                     }
                 </div>
             </div>
         }
 
-        <div class="nav-item px-3 mt-2 text-center border-top pt-2">
-            <span class="text-muted small opacity-75" style="font-size: 0.75rem;">
-                <i class="bi bi-info-circle me-1"></i> Versión @AppVersion
+        <div class="nav-item px-3 mt-auto mb-2 text-center border-top border-white border-opacity-10 pt-3">
+            <span class="text-white-50 xsmall opacity-75">
+                 v@AppVersion
             </span>
         </div>
 
-        <div class="nav-item px-3 mt-2">
-            <button class="btn btn-link nav-link text-danger w-100 text-start" @onclick="CerrarSistema">
-                <i class="bi bi-power me-3 fs-5"></i> Cerrar Sistema
+        <div class="nav-item px-3 mb-3">
+            <button class="btn btn-link nav-link text-danger w-100 text-start py-2" @onclick="CerrarSistema">
+                <i class="bi bi-power me-3 fs-5"></i> Salir
             </button>
         </div>
+    </nav>
+</div>
     </nav>
 </div>
 

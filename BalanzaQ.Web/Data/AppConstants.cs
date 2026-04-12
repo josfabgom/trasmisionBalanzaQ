@@ -2,9 +2,11 @@ namespace BalanzaQ.Web.Data;
 
 public static class AppConstants
 {
-    public const string AppVersion = "v3.5.55";
-    /*Última actualización: 2026-04-12 (v3.5.55)
-*   **Rediseño Premium (v3.5.55):** Optimización total de las interfaces de Artículos y Auditoría. Se eliminó el modo simulación y se implementaron cabeceras y listas de alta fidelidad con efectos de hover y paletas suaves.
+    public const string AppVersion = "v3.5.70";
+    public const string AppName = "BalanzaQ";
+    /*Última actualización: 2026-04-12 (v3.5.70)
+*   **Localización y Pulido Premium (v3.5.70):** Traducción completa al español de todos los módulos, refinamiento de alineación de columnas (Precio, PLU, Sector) y visualización optimizada de vencimientos ("días").
+*   **Rediseño Premium (v3.5.60):** Optimización total de las interfaces de Artículos y Auditoría. Se eliminó el modo simulación y se implementaron cabeceras y listas de alta fidelidad con efectos de hover y paletas suaves.
 *   **Auto-Verificación (v3.5.51):** El sistema ahora ejecuta de forma automática el comando RD al finalizar un lote para confirmar los datos físicamente.
 *   **Verificación Robusta (v3.5.50):** Implementación de "PLU Centinela" mediante comando RD para confirmar físicamente la presencia de datos en la balanza.
 *   **Gestión de Falsos -2:** Se reclasificó el error READ_FILE_ERR (-2) como "Verificando" para evitar falsos negativos en la interfaz de usuario.

@@ -7,90 +7,100 @@
 
 <PageTitle>Balanzas</PageTitle>
 
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Configuración de Balanzas Digi</h2>
+<div class="header-premium d-flex justify-content-between align-items-center anim-fade-in shadow-sm">
+    <div class="d-flex align-items-center">
+        <div class="icon-box-md bg-info-soft text-info me-3 shadow-sm">
+            <i class="bi bi-pc-display-horizontal fs-3"></i>
+        </div>
         <div>
-            <button class="btn btn-outline-info me-2" @onclick="VerificarConexionGlobal" disabled="@_isPinging">
-                @if (_isPinging)
-                {
-                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-                    <span> Comprobando redes...</span>
-                }
-                else
-                {
-                    <i class="bi bi-activity"></i> <span>Verificar Conexión</span>
-                }
-            </button>
-            <button class="btn btn-primary" @onclick="CrearNueva"><i class="bi bi-plus"></i> Nueva Balanza</button>
+            <h1 class="h4 mb-1 fw-bold text-dark">Configuración de Balanzas</h1>
+            <p class="text-muted small mb-0">Gestione la red de equipos Digi SM-300 y verifique su conectividad.</p>
         </div>
     </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-info rounded-pill px-3 shadow-sm" @onclick="VerificarConexionGlobal" disabled="@_isPinging">
+            @if (_isPinging) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            else { <i class="bi bi-activity me-2"></i> }
+            Verificar Red
+        </button>
+        <button class="btn btn-primary rounded-pill px-4 shadow-sm" @onclick="CrearNueva">
+            <i class="bi bi-plus-lg me-2"></i> Nueva Balanza
+        </button>
+    </div>
+</div>
 
-    @if (!string.IsNullOrEmpty(Mensaje))
-    {
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            @Mensaje
-            <button type="button" class="btn-close" @onclick="() => Mensaje = null"></button>
-        </div>
-    }
+@if (!string.IsNullOrEmpty(Mensaje))
+{
+    <div class="alert alert-success alert-dismissible fade show shadow-sm border-0 anim-fade-in mb-4" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i> @Mensaje
+        <button type="button" class="btn-close" @onclick="() => Mensaje = null"></button>
+    </div>
+}
 
+<div class="card card-premium shadow-sm border-0 anim-fade-in" style="animation-delay: 0.1s;">
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-dark">
+        <table class="table table-premium align-middle mb-0">
+            <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>IP</th>
-                    <th>Estado Red</th>
-                    <th>Descripción</th>
-                    <th>Activa</th>
-                    <th>Estado Sinc.</th>
-                    <th>Acciones</th>
+                    <th class="ps-4">Dirección IP</th>
+                    <th class="text-center">Estado Red</th>
+                    <th>Descripción / Sector</th>
+                    <th class="text-center">Transmisión</th>
+                    <th class="text-center">Último Envío</th>
+                    <th class="text-end pe-4">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var b in balanzas)
                 {
                     <tr>
-                        <td>@b.Id</td>
-                        <td><strong>@b.IpAddress</strong></td>
-                        <td>
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark">@b.IpAddress</div>
+                            <div class="xsmall text-muted">ID: #@b.Id</div>
+                        </td>
+                        <td class="text-center">
                             @if (_pingStatus.ContainsKey(b.Id))
                             {
                                 @if (_pingStatus[b.Id].Contains("✅"))
                                 {
-                                    <span class="badge bg-success">@_pingStatus[b.Id]</span>
+                                    <span class="badge bg-success-soft text-success rounded-pill px-3 py-1">
+                                        <i class="bi bi-check-circle-fill me-1"></i> En línea
+                                    </span>
                                 }
                                 else if (_pingStatus[b.Id].Contains("❌"))
                                 {
-                                    <span class="badge bg-danger">@_pingStatus[b.Id]</span>
+                                    <span class="badge bg-danger-soft text-danger rounded-pill px-3 py-1">
+                                        <i class="bi bi-x-circle-fill me-1"></i> Desconectado
+                                    </span>
                                 }
                                 else
                                 {
-                                    <span class="badge bg-secondary">@_pingStatus[b.Id]</span>
+                                    <span class="badge bg-secondary-soft text-secondary rounded-pill px-3 py-1">
+                                        <i class="bi bi-hourglass-split me-1"></i> @_pingStatus[b.Id]
+                                    </span>
                                 }
                             }
                             else
                             {
-                                <span class="badge bg-light text-dark">❓ Desconocido</span>
+                                <span class="badge bg-light text-dark rounded-pill px-3 py-1 border">? Desconocido</span>
                             }
                         </td>
-                        <td>@b.Description</td>
                         <td>
-                            @if (b.IsEnabled)
-                            {
-                                <span class="badge bg-success">Sí</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-danger">No</span>
-                            }
+                            <span class="text-dark fw-medium">@b.Description</span>
                         </td>
-                        <td><small>@(b.LastSyncDate?.ToString("g") ?? "Nunca")</small><br />@b.LastSyncStatus</td>
-                        <td>
-                            <div class="btn-group">
-                                <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(b)">Editar</button>
-                                <button class="btn btn-sm btn-outline-info" @onclick="() => ConsultarEtiquetas(b)" title="Obtener archivo F52">Etiquetas</button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(b)">Eliminar</button>
+                        <td class="text-center">
+                            @if (b.IsEnabled) { <span class="badge bg-primary-soft text-primary rounded-pill px-3 py-1">Activa</span> }
+                            else { <span class="badge bg-light text-muted rounded-pill px-3 py-1">Inactiva</span> }
+                        </td>
+                        <td class="text-center">
+                            <div class="xsmall fw-bold text-dark">@(b.LastSyncDate?.ToString("dd/MM HH:mm") ?? "Sin datos")</div>
+                            <div class="xsmall text-muted truncate mx-auto" style="max-width: 150px;">@b.LastSyncStatus</div>
+                        </td>
+                        <td class="text-end pe-4">
+                            <div class="btn-group shadow-sm rounded-3 overflow-hidden border">
+                                <button class="btn btn-sm btn-white bg-white text-primary border-0 border-end py-2 px-3" @onclick="() => Editar(b)" title="Editar"><i class="bi bi-pencil-square"></i></button>
+                                <button class="btn btn-sm btn-white bg-white text-info border-0 border-end py-2 px-3" @onclick="() => ConsultarEtiquetas(b)" title="Obtener F52"><i class="bi bi-printer-fill"></i></button>
+                                <button class="btn btn-sm btn-white bg-white text-danger border-0 py-2 px-3" @onclick="() => Eliminar(b)" title="Eliminar"><i class="bi bi-trash-fill"></i></button>
                             </div>
                         </td>
                     </tr>
