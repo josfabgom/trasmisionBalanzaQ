@@ -2,9 +2,12 @@ namespace BalanzaQ.Web.Data;
 
 public static class AppConstants
 {
-    public const string AppVersion = "v3.5.42";
-    /*Última actualización: 2026-04-12 (v3.5.42)
-*   **Restauración del Batch Definitivo y JS Download:** Se revirtió el tamaño de lote unitario (`batchSize = 1`) y se restableció el envío masivo en bloque (`batchSize = items.Count`) para maximizar la velocidad de transmisión. Además, se integró interop JavaScript (`download.js`) en la UI y se hizo 'case-insensitive' la verificación de éxito para garantizar que el aplicativo Blazor pueda forzar adecuadamente la descarga de los archivos .DAT.
+    public const string AppVersion = "v3.5.43";
+    /*Última actualización: 2026-04-12 (v3.5.43)
+*   **Fix Trama Hex Continua (Batch Upload):** Se eliminaron los saltos de línea (`AppendLine`) entre registros de 132 bytes en el archivo `.DAT`. Se confirmó que el driver Digi requiere un flujo hexadecimal ininterrumpido (264 caracteres hex pegados uno tras otro) para procesar múltiples artículos en un solo envío; de lo contrario, aborta la lectura tras el primer ítem.
+
+### 🗓️ 2026-04-12 (v3.5.43)
+*   **Fix Trama Hex Continua:** Eliminación de `\r\n` entre registros en la construcción del archivo `.DAT`. Ahora todos los PLUs se envían en una única cadena hexadecimal continua, lo que permite que el driver procese el lote completo sin cortarse al primer registro.
 
 ### 🗓️ 2026-04-12 (v3.5.42)
 *   **Restauración del Batch Definitivo (Max Velocidad):** Se revirtió la transmisión estrictamente secuencial de a 1 PLU (`batchSize = 1`) y se reinstauró el envío por lotes masivos globales (`batchSize = items.Count`). Esto erradica el exceso de demoras y llamadas al driver, maximizando el rendimiento.

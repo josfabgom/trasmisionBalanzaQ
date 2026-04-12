@@ -17,6 +17,9 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-12 (v3.5.43)
+*   **Fix Trama Hex Continua (Batch Upload):** Se eliminaron los saltos de línea (`AppendLine`) entre registros de 132 bytes en el archivo `.DAT`. Se confirmó que el driver Digi requiere un flujo hexadecimal ininterrumpido (264 caracteres hex pegados uno tras otro) para procesar múltiples artículos en un solo envío; de lo contrario, el driver aborta la lectura tras el primer ítem al encontrar caracteres no hexadecimales.
+
 ### 🗓️ 2026-04-12 (v3.5.42)
 *   **Restauración del Batch Definitivo (Max Velocidad):** Se revirtió la transmisión estrictamente secuencial de a 1 PLU (`batchSize = 1`) y se reinstauró el envío por lotes masivos globales (`batchSize = items.Count`). Esto erradica el exceso de demoras y llamadas al driver, maximizando el rendimiento en despliegues concurrentes sin afectar los offsets de la plantilla subyacente.
 *   **Descarga de Trama .DAT Funcional:** Se implementó `download.js` inyectado por JS Interop en `App.razor` para habilitar la descarga manual segura del archivo de texto .DAT sin necesidad de enviar físicamente a la balanza. También se corrigió un problema de 'case-insensitivity' al capturar el resultado que simulaba un falso `Error al generar los archivos`.
@@ -118,4 +121,4 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 *   **Reversión de Código de Barras (Rollback):** Restauración desde backup funcional.
 
 ---
-*Última actualización: 2026-04-12 (v3.5.42)*
+*Última actualización: 2026-04-12 (v3.5.43)*

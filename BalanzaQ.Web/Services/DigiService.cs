@@ -136,7 +136,7 @@ public class DigiService
                         Array.Copy(afterName, 0, record, currentTailStart, tailLength);
                     }
 
-                    batchHexPayload.AppendLine(Convert.ToHexString(record).ToUpper());
+                    batchHexPayload.Append(Convert.ToHexString(record).ToUpper());
                 }
 
                 string hexPayload = batchHexPayload.ToString();
