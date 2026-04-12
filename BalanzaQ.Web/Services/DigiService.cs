@@ -69,9 +69,9 @@ public class DigiService
             byte[] afterName = new byte[templateBytes.Length - (numNameStart + 3 + templateNameLen)];
             Array.Copy(templateBytes, numNameStart + 3 + templateNameLen, afterName, 0, afterName.Length);
 
-            // Transmisión en Lote (Estabilizada en v3.5.44)
-            // Limitamos a 25 artículos por ráfaga para evitar desborde de buffer en la balanza/driver.
-            int batchSize = 25;
+            // Sincronización Individual de Alta Velocidad (v3.5.45)
+            // Revertimos a envío de 1 en 1 porque el SM-300 solo procesa el primero de cada archivo.
+            int batchSize = 1;
             int exitosTotal = 0;
 
             // Crear o limpiar el log general de hex
@@ -196,8 +196,8 @@ public class DigiService
                         await AppendToLogAsync(balanza, item);
                     }
                     
-                    // Pausa de seguridad para que el driver libere el puerto TCP y el archivo antes del próximo lote
-                    await Task.Delay(500);
+                    // Pausa de seguridad optimizada (50ms) para alta velocidad individual
+                    await Task.Delay(50);
                 }
                 onProgress?.Invoke(Math.Min(i + batchSize, items.Count), items.Count);
             }

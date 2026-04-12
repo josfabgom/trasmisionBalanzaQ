@@ -2,14 +2,15 @@ namespace BalanzaQ.Web.Data;
 
 public static class AppConstants
 {
-    public const string AppVersion = "v3.5.44";
-    /*Última actualización: 2026-04-12 (v3.5.44)
-*   **Estabilización de Envío por Lotes (v3.5.44):** Se limitó el tamaño del lote a 25 artículos (`batchSize = 25`) para evitar desbordes de buffer en la balanza Digi SM-300. Se mantiene la trama hexadecimal continua inyectada en la v3.5.43, asegurando que todos los registros se procesen sin cortes físicos.
+    public const string AppVersion = "v3.5.45";
+    /*Última actualización: 2026-04-12 (v3.5.45)
+*   **Sincronización Individual de Alta Velocidad (v3.5.45):** Se revirtió el envío por lotes a envío individual (1 por 1) tras confirmar que la balanza SM-300 solo procesa el primer registro de cada archivo físico. Para compensar, se optimizaron las pausas de ráfaga a 50ms, logrando una velocidad mucho mayor que en versiones previas de envío individual.
+
+### 🗓️ 2026-04-12 (v3.5.45)
+*   **Fix Sync 1-por-1:** Reversión a `batchSize = 1`. Se identificó que la arquitectura SM-300 ignora registros concatenados en un mismo archivo .DAT.
+*   **Optimización de Latencia:** Reducción drástica del `Task.Delay` de 500ms a 50ms entre artículos.
 
 ### 🗓️ 2026-04-12 (v3.5.44)
-*   **Fix Sincronización Masiva:** Reducción de lote a 25 registros por ráfaga TCP. Se detectó que enviar cientos de PLUs en un solo archivo .DAT saturaba la memoria del driver/balanza, impidiendo que se grabara más de uno. Con 25 registros se recupera la estabilidad total sin sacrificar excesiva velocidad.
-
-### 🗓️ 2026-04-12 (v3.5.43)
 *   **Fix Trama Hex Continua:** Eliminación de `\r\n` entre registros en la construcción del archivo `.DAT`. Ahora todos los PLUs se envían en una única cadena hexadecimal continua, lo que permite que el driver procese el lote completo sin cortarse al primer registro.
 
 ### 🗓️ 2026-04-12 (v3.5.42)

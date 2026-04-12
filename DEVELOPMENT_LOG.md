@@ -16,6 +16,9 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 ---
 
 ## 📜 Historial de Cambios Recientes
+### 🗓️ 2026-04-12 (v3.5.45)
+*   **Sincronización Individual de Alta Velocidad:** Se revirtió el cambio de envío por lotes y se regresó al método de **un archivo por PLU**. Se confirmó que las balanzas SM-300 solo procesan el primer PLU de cada archivo `.DAT` enviado con el comando `WR 37`.
+*   **Optimización de Tiempos:** Se redujo drásticamente el tiempo de espera entre sincronizaciones de 500ms a **50ms**, logrando procesar grandes volúmenes de artículos en pocos segundos sin comprometer la llegada de la información.
 
 ### 🗓️ 2026-04-12 (v3.5.44)
 *   **Estabilización de Sincronización Masiva:** Reducción del tamaño del lote de transmisión a **25 registros** por archivo `.DAT`. Esta medida previene que el driver `digiwtcp.exe` o el buffer de la balanza SM-300 se saturen al procesar cadenas hexadecimales excesivamente largas, asegurando que todos los PLUs seleccionados se transmitan exitosamente uno tras otro en ráfagas controladas.
@@ -124,4 +127,4 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 *   **Reversión de Código de Barras (Rollback):** Restauración desde backup funcional.
 
 ---
-*Última actualización: 2026-04-12 (v3.5.44)*
+*Última actualización: 2026-04-12 (v3.5.45)*
