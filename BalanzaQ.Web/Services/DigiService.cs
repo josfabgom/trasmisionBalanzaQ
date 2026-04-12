@@ -172,31 +172,22 @@ public class DigiService
                     int lastColon = resultLine.LastIndexOf(':');
                     if (lastColon >= 0) resCode = resultLine.Substring(lastColon + 1).Trim();
 
-                    // Criterio Pragmático (v3.5.47):
-                    // Se considera éxito si:
-                    // 1. El código es 0 (OK total)
-                    // 2. O es un error de lógica de la balanza (-8 a -12) pero HUBO comunicación.
-                    // Fallo solo si: Archivos locales (-1 a -3), Red (-5 a -7) o Error Crítico.
-                    
-                    bool success = (resCode == "0" || resCode == "00" || resCode.EndsWith(" 0") || resCode.Contains(": 0") || resCode.ToUpper().Contains("OK"));
-                    
-                    if (!success)
-                    {
-                        // Evaluar si es un error de comunicación o interno
-                        bool esErrorDeRed = (resCode == "-5" || resCode == "-6" || resCode == "-7");
-                        bool esErrorLocal = (resCode == "-1" || resCode == "-2" || resCode == "-3" || resCode == "MISSING" || resCode == "LOCKED");
-                        
-                        // Si NO es de red NI local, es un error de la máquina pero el archivo LLEGÓ.
-                        if (!esErrorDeRed && !esErrorLocal) success = true; 
-                    }
+                    // Criterio Pragmático Refinado (v3.5.48):
+                    // No es éxito SI Y SOLO SI es un error crítico (Red o Local).
+                    bool esErrorDeRed = (resCode == "-5" || resCode == "-6" || resCode == "-7");
+                    bool esErrorLocal = (resCode == "-1" || resCode == "-2" || resCode == "-3" || resCode == "MISSING" || resCode == "LOCKED");
+                    bool esFalloCritico = esErrorDeRed || esErrorLocal;
 
+                    bool success = !esFalloCritico; // Cualquier respuesta de la balanza (0 o códigos -8 a -12) se considera éxito de envío.
+                    
                     if (success) exitosTotal += currentBatch.Count;
 
                     foreach(var item in currentBatch)
                     {
                         item.LastSyncDate = DateTime.Now;
                         item.LastSyncStatus = success ? "Exitoso" : "Fallo";
-                        item.LastSyncError = success ? null : GetDigiErrorMessage(resCode);
+                        // Mantener el mensaje de error si no fue un "0" perfecto, para que el usuario pueda auditar aunque esté en verde.
+                        item.LastSyncError = (resCode == "0" || resCode == "00") ? null : GetDigiErrorMessage(resCode);
 
                         _db.SyncLogs.Add(new SyncLog
                         {
