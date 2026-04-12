@@ -11,14 +11,14 @@
 <PageTitle>Auditoría de Sistema</PageTitle>
 
 <div class="container mt-4 mb-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-white shadow-sm rounded-3">
         <div>
             <h2 class="mb-0 fw-bold text-primary"><i class="bi bi-shield-check me-2"></i> Auditoría de Sistema</h2>
-            <p class="text-muted small mb-0">Seguimiento de transmisiones e importaciones de datos.</p>
+            <p class="text-muted small mb-0">Seguimiento forense de transmisiones e importaciones de datos en tiempo real.</p>
         </div>
         <div class="btn-group shadow-sm">
-            <button class="btn btn-outline-danger btn-sm" @onclick="LimpiarAuditoria">
-                <i class="bi bi-trash"></i> Limpiar Todo
+            <button class="btn btn-outline-danger btn-sm px-3" @onclick="LimpiarAuditoria">
+                <i class="bi bi-trash me-1"></i> Borrar Historial
             </button>
         </div>
     </div>
@@ -53,21 +53,27 @@
                 <div class="card mb-3 shadow-sm border-0 rounded-3 overflow-hidden anim-fade-in shadow-hover">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom-0" @onclick="() => ToggleSession(session.BatchId)" style="cursor: pointer;">
                         <div class="d-flex align-items-center">
-                            <div class="icon-box me-3 @(session.FailedCount > 0 ? "bg-danger-soft text-danger" : (session.HasWarnings ? "bg-info-soft text-info" : "bg-success-soft text-success"))">
-                                <i class="bi @(session.FailedCount > 0 ? "bi-exclamation-circle" : (session.HasWarnings ? "bi-shield-exclamation" : "bi-check-all")) fs-4"></i>
+                            <div class="icon-box-sm me-3 @(session.FailedCount > 0 ? "bg-danger-soft text-danger" : (session.HasWarnings ? "bg-info-soft text-info" : "bg-success-soft text-success"))">
+                                <i class="bi @(session.FailedCount > 0 ? "bi-exclamation-circle" : (session.HasWarnings ? "bi-shield-exclamation" : "bi-check-all")) fs-5"></i>
                             </div>
                             <div>
-                                <span class="fw-bold fs-5 d-block">Lote #@session.BatchId</span>
-                                <span class="badge bg-secondary-soft text-secondary xsmall">@session.StartTime.ToString("g")</span>
+                                <span class="fw-bold d-block">Lote <span class="font-monospace text-primary">#@session.BatchId</span></span>
+                                <div class="xsmall text-muted">
+                                    <i class="bi bi-calendar3 me-1"></i> @session.StartTime.ToString("g") 
+                                    <span class="ms-2"><i class="bi bi-clock me-1"></i> Hace @GetRelativeTime(session.StartTime)</span>
+                                </div>
                             </div>
                         </div>
                         <div class="text-end d-flex align-items-center">
-                            <div class="me-3">
-                                @if (session.FailedCount > 0) { <span class="badge bg-danger">@session.FailedCount Errores</span> }
-                                else { <span class="badge bg-success">100% OK</span> }
-                                <div class="text-muted small">@session.TotalItems items</div>
+                            <div class="me-4 text-end">
+                                @if (session.FailedCount > 0) { <span class="badge bg-danger-soft text-danger border-danger-subtle px-2">@session.FailedCount Errores</span> }
+                                else if (session.HasWarnings) { <span class="badge bg-info-soft text-info border-info-subtle px-2">Verificación Pendiente</span> }
+                                else { <span class="badge bg-success-soft text-success border-success-subtle px-2">Sincronización OK</span> }
+                                <div class="xsmall text-muted mt-1 fw-bold">@session.TotalItems productos procesados</div>
                             </div>
-                            <i class="bi @(expandedSessions.Contains(session.BatchId) ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                            <div class="btn btn-sm btn-light rounded-circle shadow-sm">
+                                <i class="bi @(expandedSessions.Contains(session.BatchId) ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                            </div>
                         </div>
                     </div>
                     @if (expandedSessions.Contains(session.BatchId))
@@ -181,10 +187,16 @@
         width: 48px; height: 48px; border-radius: 12px;
         display: flex; align-items: center; justify-content: center;
     }
+
+    .icon-box-sm {
+        width: 38px; height: 38px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+    }
     
-    .xsmall { font-size: 0.75rem; }
+    .xsmall { font-size: 0.7rem; }
     .font-monospace { font-family: 'Consolas', monospace; }
-    .shadow-hover:hover { transform: translateY(-2px); transition: all 0.2s ease; box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
+    .shadow-hover:hover { transform: translateY(-2px); transition: all 0.2s ease; box-shadow: 0 .5rem 1rem rgba(0,0,0,.1)!important; }
+    .table-hover tbody tr:hover { background-color: #f8fbff; transition: background 0.2s; }
 </style>
 
 @code {

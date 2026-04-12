@@ -11,37 +11,53 @@
 <PageTitle>Artículos</PageTitle>
 
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Listado de Artículos a Procesar</h2>
-        <div class="d-flex gap-2">
-            <button class="btn btn-success" @onclick="() => SincronizarSeleccionados(true)" disabled="@(!seleccionados.Any() || _isSyncing)">
-                @if (_isSyncing)
-                {
-                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-                }
-                else
-                {
-                    <i class="bi bi-broadcast"></i>
-                }
-                @(simulateMode ? "Simular Envío" : "Transmitir Seleccionados")
-            </button>
-            <button class="btn btn-outline-primary" @onclick="() => SincronizarSeleccionados(false)" disabled="@(!seleccionados.Any() || _isSyncing)">
-                <i class="bi bi-download"></i> Descargar .DAT
-            </button>
-            <button class="btn btn-outline-secondary" @onclick="SincronizarLocal" disabled="@_isSyncing">
-                <i class="bi bi-arrow-repeat"></i> Sincronizar con data.dat
-            </button>
-            <button class="btn btn-outline-danger" @onclick="SeleccionarFallidos" disabled="@_isSyncing">
-                <i class="bi bi-exclamation-triangle"></i> Seleccionar Fallidos
-            </button>
-            <div class="form-check form-switch d-flex align-items-center ms-2" title="Omite el envío real a la balanza para evitar errores de conexión">
-                <input class="form-check-input me-1" type="checkbox" id="simMode" @bind="simulateMode">
-                <label class="form-check-label mb-0" for="simMode">Simular Envío</label>
+    <style>
+        .bg-success-soft { background-color: rgba(25, 135, 84, 0.1) !important; }
+        .bg-danger-soft { background-color: rgba(220, 53, 69, 0.1) !important; }
+        .bg-warning-soft { background-color: rgba(255, 193, 7, 0.1) !important; }
+        .bg-primary-soft { background-color: rgba(13, 110, 253, 0.1) !important; }
+        .bg-info-soft { background-color: rgba(13, 202, 240, 0.1) !important; }
+        .bg-secondary-soft { background-color: rgba(108, 117, 125, 0.1) !important; }
+        .xsmall { font-size: 0.7rem; }
+        .uppercase { text-transform: uppercase; letter-spacing: 0.5px; }
+        .table-hover tbody tr:hover { background-color: #f8fbff; cursor: pointer; transition: background 0.2s; }
+        .btn-group .btn-white { background: white; border: 1px solid #dee2e6; }
+        .btn-group .btn-white:hover { background: #f8f9fa; }
+    </style>
+    <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-white shadow-sm rounded-3">
+        <div>
+            <h2 class="mb-0 fw-bold text-primary"><i class="bi bi-box-seam me-2"></i> Gestión de Artículos</h2>
+            <p class="text-muted small mb-0">Administra los artículos sincronizados desde el archivo local y envíalos a las balanzas.</p>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="input-group me-2" style="max-width:300px;">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" class="form-control border-start-0 ps-0" placeholder="Buscar PLU o nombre..." @bind="terminoBusqueda" @bind:event="oninput" @onkeyup="FiltrarLista" />
             </div>
-            <div class="input-group" style="max-width:250px;">
-                <input type="text" class="form-control" placeholder="Buscar..." @bind="terminoBusqueda" @bind:event="oninput" @onkeyup="FiltrarLista" />
-                <button class="btn btn-outline-secondary" type="button"><i class="bi bi-search"></i></button>
+            
+            <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" disabled="@_isSyncing">
+                    @if (_isSyncing) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    else { <i class="bi bi-broadcast me-1"></i> }
+                    Acciones de Envío
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                    <li><button class="dropdown-item py-2" @onclick="() => SincronizarSeleccionados(true)" disabled="@(!seleccionados.Any())">
+                        <i class="bi bi-send-check me-2 text-success"></i>Transmitir Seleccionados
+                    </button></li>
+                    <li><button class="dropdown-item py-2" @onclick="() => SincronizarSeleccionados(false)" disabled="@(!seleccionados.Any())">
+                        <i class="bi bi-file-earmark-arrow-down me-2 text-primary"></i>Generar y Descargar .DAT
+                    </button></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><button class="dropdown-item py-2" @onclick="SeleccionarFallidos">
+                        <i class="bi bi-exclamation-triangle me-2 text-danger"></i>Seleccionar Fallidos
+                    </button></li>
+                </ul>
             </div>
+
+            <button class="btn btn-outline-secondary" @onclick="SincronizarLocal" disabled="@_isSyncing" title="Sincronizar con data.dat">
+                <i class="bi bi-arrow-repeat"></i>
+            </button>
         </div>
     </div>
 
@@ -86,63 +102,66 @@
     }
 
     <div class="table-responsive">
-        <table class="table table-hover align-middle table-sm border rounded">
-            <thead class="table-dark">
+        <table class="table table-hover align-middle shadow-sm bg-white rounded-3 overflow-hidden border-0">
+            <thead class="bg-primary text-white xsmall uppercase">
                 <tr>
-                    <th style="width: 40px;">
-                        <input type="checkbox" class="form-check-input" @onchange="ToggleTodos" checked="@(listaFiltrada.Any() && seleccionados.Count >= listaFiltrada.Count)" />
+                    <th style="width: 40px;" class="ps-3">
+                        <input type="checkbox" class="form-check-input border-white" @onchange="ToggleTodos" checked="@(listaFiltrada.Any() && seleccionados.Count >= listaFiltrada.Count)" />
                     </th>
-                    <th>PLU</th>
-                    <th>Nombre Corto</th>
-                    <th>Nombre Ticket</th>
-                    <th>Precio ($)</th>
-                    <th>Grupo/Dpto.</th>
-                    <th>Sección</th>
-                    <th>Días Vto.</th>
-                    <th>Tipo</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
+                    <th class="py-3">PLU</th>
+                    <th>PRODUCTO (TICKET)</th>
+                    <th>PRECIO</th>
+                    <th>ID SECC.</th>
+                    <th>VTO.</th>
+                    <th>TIPO</th>
+                    <th>ESTADO</th>
+                    <th class="pe-3 text-end">ACCIONES</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="small border-top-0">
                 @foreach (var p in listaFiltrada)
                 {
                     <tr>
-                        <td>
+                        <td class="ps-3">
                             <input type="checkbox" class="form-check-input" checked="@seleccionados.Contains(p.PluCode)" @onchange="(e) => ToggleSeleccion(p.PluCode, e)" />
                         </td>
-                        <td><strong>@p.PluCode</strong></td>
-                        <td>@(p.Name?.Length > 15 ? p.Name.Substring(0,15)+"..." : p.Name)</td>
-                        <td>@(p.ShortName?.Length > 30 ? p.ShortName.Substring(0,30)+"..." : p.ShortName)</td>
-                        <td class="text-success fw-bold">@p.Price.ToString("N2")</td>
-                        <td>@p.Group</td>
-                        <td>@p.Section</td>
-                        <td>@p.ShelfLife días</td>
+                        <td class="fw-bold font-monospace">@p.PluCode</td>
                         <td>
-                            @if (p.ItemType == "P") { <span class="badge bg-primary">Pesado</span> }
-                            else { <span class="badge bg-info">Unidad</span> }
+                            <div class="fw-bold small">@p.ShortName</div>
+                            <div class="text-muted xsmall">@p.Name</div>
+                        </td>
+                        <td class="fw-bold text-dark">$ @p.Price.ToString("N2")</td>
+                        <td class="text-center"><span class="badge bg-light text-dark border">#@p.Section</span></td>
+                        <td><span class="badge bg-secondary-soft text-secondary">@p.ShelfLife d</span></td>
+                        <td>
+                            @if (p.ItemType == "P") { <span class="badge bg-primary-soft text-primary"><i class="bi bi-scale me-1"></i>P.</span> }
+                            else { <span class="badge bg-info-soft text-info"><i class="bi bi-box me-1"></i>U.</span> }
                         </td>
                         <td>
                             @if (p.LastSyncStatus == "Exitoso")
                             {
-                                <span class="badge bg-success" title="Sincronizado el @p.LastSyncDate?.ToString("g")"><i class="bi bi-check-circle"></i> OK</span>
+                                <span class="badge bg-success-soft text-success border-success-subtle" title="Sincronizado el @p.LastSyncDate?.ToString("g")"><i class="bi bi-check-circle me-1"></i>EXITO</span>
+                            }
+                            else if (p.LastSyncStatus == "Verificando")
+                            {
+                                <span class="badge bg-info-soft text-info border-info-subtle" title="Sincronizado el @p.LastSyncDate?.ToString("g")"><i class="bi bi-shield-shaded me-1"></i>CHECK</span>
                             }
                             else if (p.LastSyncStatus == "Fallo")
                             {
-                                <span class="badge bg-danger" title="@p.LastSyncError (el @p.LastSyncDate?.ToString("g") )"><i class="bi bi-x-circle"></i> Fallo</span>
+                                <span class="badge bg-danger-soft text-danger border-danger-subtle" title="@p.LastSyncError (el @p.LastSyncDate?.ToString("g") )"><i class="bi bi-x-circle me-1"></i>FALLO</span>
                             }
                             else
                             {
-                                <span class="badge bg-secondary opacity-50"><i class="bi bi-dash-circle"></i> Pendiente</span>
+                                <span class="badge bg-light text-muted opacity-75 border"><i class="bi bi-dash-circle me-1"></i>PEND.</span>
                             }
                         </td>
-                        <td>
-                             <div class="btn-group">
-                                 <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(p)">
-                                     <i class="bi bi-pencil"></i> Editar
+                        <td class="pe-3 text-end">
+                             <div class="btn-group shadow-sm">
+                                 <button class="btn btn-sm btn-white border-end" @onclick="() => Editar(p)" title="Editar PLU">
+                                     <i class="bi bi-pencil text-primary"></i>
                                  </button>
-                                 <button class="btn btn-sm btn-outline-secondary" @onclick="() => Previsualizar(p)" title="Simular diseño de etiqueta">
-                                     <i class="bi bi-eye"></i> Ver
+                                 <button class="btn btn-sm btn-white" @onclick="() => Previsualizar(p)" title="Previsualizar Etiqueta">
+                                     <i class="bi bi-eye text-secondary"></i>
                                  </button>
                              </div>
                          </td>
@@ -285,17 +304,20 @@
     private string ClaseAlerta = "alert-success";
     private bool _isSyncing = false;
     private int _currentProgress = 0;
-    private int _totalProgress = 0;
-    private string _progressText = "";
     private HashSet<int> seleccionados = new();
-
     private PluItem Model = new();
     private PluItem PreviewModel = new();
     private bool ShowModal = false;
     private bool ShowPreviewModal = false;
-    private bool simulateMode = false;
+    private int _currentProgress = 0;
+    private int _totalProgress = 0;
+    private string _progressText = "";
+    private string? Mensaje;
+    private string ClaseAlerta = "alert-info";
+    private string? terminoBusqueda;
     private string? lastGeneratedHex;
     private string? hexBueno;
+    private bool _isSyncing = false;
 
     private int GetProgressPercentage() => _totalProgress > 0 ? (int)((double)_currentProgress / _totalProgress * 100) : 0;
 
@@ -422,19 +444,18 @@
                 _progressText = $"Conectando con {b.IpAddress} ({balanzaIndex}/{balanzas.Count})...";
                 StateHasChanged();
 
-                var res = await DigiService.SyncBalanzaAsync(b, articulosSeleccionados, enviarABalanza && !simulateMode, (current, total) => {
+                var res = await DigiService.SyncBalanzaAsync(b, articulosSeleccionados, enviarABalanza, (current, total) => {
                     _currentProgress = ((balanzaIndex - 1) * total) + current;
                     _progressText = $"Transmitiendo a {b.IpAddress}: {current}/{total} PLUs";
                     StateHasChanged();
                 }, batchId);
 
                 b.LastSyncDate = DateTime.Now;
-                b.LastSyncStatus = simulateMode ? "Simulado (OK)" : res.Message;
+                b.LastSyncStatus = res.Message;
                 
                 if (res.Message.Contains("Exito", StringComparison.OrdinalIgnoreCase) || 
                     res.Message.Contains("exitosos", StringComparison.OrdinalIgnoreCase) || 
-                    res.Message.Contains("generad", StringComparison.OrdinalIgnoreCase) || 
-                    (simulateMode && !string.IsNullOrEmpty(res.HexPayload)))
+                    res.Message.Contains("generad", StringComparison.OrdinalIgnoreCase))
                 {
                     exitos++;
                     
@@ -450,7 +471,7 @@
             // PERSISTIR ESTADOS INDIVIDUALES
             await DbContext.SaveChangesAsync();
 
-            if (enviarABalanza && !simulateMode)
+            if (enviarABalanza)
             {
                 Mensaje = (exitos > 0) ? $"Transmisión completada. Se enviaron artículos a {exitos} balanza(s)." : "Error en el proceso de envío.";
             }

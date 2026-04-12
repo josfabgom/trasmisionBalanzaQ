@@ -2,9 +2,9 @@ namespace BalanzaQ.Web.Data;
 
 public static class AppConstants
 {
-    public const string AppVersion = "v3.5.52";
-    /*Última actualización: 2026-04-12 (v3.5.52)
-*   **Robustez de Verificación (v3.5.52):** Se mejoró el escaneo de registros F37 para evitar falsos negativos por desfases o bloqueos de archivos.
+    public const string AppVersion = "v3.5.55";
+    /*Última actualización: 2026-04-12 (v3.5.55)
+*   **Rediseño Premium (v3.5.55):** Optimización total de las interfaces de Artículos y Auditoría. Se eliminó el modo simulación y se implementaron cabeceras y listas de alta fidelidad con efectos de hover y paletas suaves.
 *   **Auto-Verificación (v3.5.51):** El sistema ahora ejecuta de forma automática el comando RD al finalizar un lote para confirmar los datos físicamente.
 *   **Verificación Robusta (v3.5.50):** Implementación de "PLU Centinela" mediante comando RD para confirmar físicamente la presencia de datos en la balanza.
 *   **Gestión de Falsos -2:** Se reclasificó el error READ_FILE_ERR (-2) como "Verificando" para evitar falsos negativos en la interfaz de usuario.
