@@ -261,11 +261,13 @@ public class DigiService
         try
         {
             string digiFolder = Path.Combine(_baseDir, "Digi");
-            string digiExe = Path.Combine(digiFolder, "digiwtcp.exe");
+            string digiExe = Path.GetFullPath(Path.Combine(digiFolder, "digiwtcp.exe"));
             string destFileName = $"SM{ip}F37.DAT";
             string datFile = Path.Combine(digiFolder, destFileName);
+            string resultPath = Path.Combine(digiFolder, "RESULT");
 
             if (File.Exists(datFile)) File.Delete(datFile);
+            if (File.Exists(resultPath)) try { File.Delete(resultPath); } catch {}
 
             ProcessStartInfo psi = new ProcessStartInfo
             {
@@ -277,18 +279,25 @@ public class DigiService
             };
 
             using var process = Process.Start(psi);
-            await process!.WaitForExitAsync();
+            if (process == null) return false;
+            await process.WaitForExitAsync();
 
             if (!File.Exists(datFile)) return false;
 
-            // El archivo RD de F37 suele ser Hexadecimal (texto ASCII)
-            string content = await File.ReadAllTextAsync(datFile);
-            string pluHexPrefix = pluCode.ToString().PadLeft(8, '0'); // BCD de 4 bytes (8 chars hex)
-
-            // Buscamos el PLU al inicio de cada registro de 132 bytes (264 chars hex)
-            for (int i = 0; i <= content.Length - 264; i += 264)
+            // El archivo RD de F37 es Hexadecimal ASCII (264 chars por registro)
+            // Usamos un stream para no cargar archivos gigantes si la balanza tiene muchos PLUs
+            using var reader = new StreamReader(datFile);
+            string pluHexPrefix = pluCode.ToString().PadLeft(8, '0'); 
+            
+            // Leemos de a bloques
+            char[] buffer = new char[264];
+            while (await reader.ReadBlockAsync(buffer, 0, 264) > 0)
             {
-                if (content.Substring(i, 8) == pluHexPrefix) return true;
+                string block = new string(buffer);
+                if (block.StartsWith(pluHexPrefix)) return true;
+                
+                // Si por alguna razón hay desfase (headers extraños), búsqueda libre en el bloque
+                if (block.Contains(pluHexPrefix)) return true;
             }
 
             return false;
