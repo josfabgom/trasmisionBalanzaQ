@@ -69,9 +69,9 @@ public class DigiService
             byte[] afterName = new byte[templateBytes.Length - (numNameStart + 3 + templateNameLen)];
             Array.Copy(templateBytes, numNameStart + 3 + templateNameLen, afterName, 0, afterName.Length);
 
-            // Transmisión en Lote (Restaurada de v3.5.30)
-            // Agrupamos todos los artículos en un solo envío para maximizar el rendimiento.
-            int batchSize = items.Count;
+            // Transmisión en Lote (Estabilizada en v3.5.44)
+            // Limitamos a 25 artículos por ráfaga para evitar desborde de buffer en la balanza/driver.
+            int batchSize = 25;
             int exitosTotal = 0;
 
             // Crear o limpiar el log general de hex

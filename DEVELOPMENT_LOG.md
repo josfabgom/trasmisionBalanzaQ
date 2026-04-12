@@ -17,6 +17,9 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-12 (v3.5.44)
+*   **Estabilización de Sincronización Masiva:** Reducción del tamaño del lote de transmisión a **25 registros** por archivo `.DAT`. Esta medida previene que el driver `digiwtcp.exe` o el buffer de la balanza SM-300 se saturen al procesar cadenas hexadecimales excesivamente largas, asegurando que todos los PLUs seleccionados se transmitan exitosamente uno tras otro en ráfagas controladas.
+
 ### 🗓️ 2026-04-12 (v3.5.43)
 *   **Fix Trama Hex Continua (Batch Upload):** Se eliminaron los saltos de línea (`AppendLine`) entre registros de 132 bytes en el archivo `.DAT`. Se confirmó que el driver Digi requiere un flujo hexadecimal ininterrumpido (264 caracteres hex pegados uno tras otro) para procesar múltiples artículos en un solo envío; de lo contrario, el driver aborta la lectura tras el primer ítem al encontrar caracteres no hexadecimales.
 
@@ -121,4 +124,4 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 *   **Reversión de Código de Barras (Rollback):** Restauración desde backup funcional.
 
 ---
-*Última actualización: 2026-04-12 (v3.5.43)*
+*Última actualización: 2026-04-12 (v3.5.44)*
