@@ -72,12 +72,14 @@
 
         @if (LicenseService.IsLicensed())
         {
-            <div class="nav-item px-4 mt-2 mb-3">
-                <div class="text-success xsmall d-flex flex-column bg-success-soft p-2 rounded-3 border border-success border-opacity-25" style="line-height: 1.2;">
-                    <span class="fw-bold"><i class="bi bi-patch-check-fill me-1"></i> LICENCIA ACTIVA</span>
+            <div class="nav-item px-3 mt-2 mb-3">
+                <div class="p-2 rounded-3 border border-success border-opacity-50 text-center anim-fade-in" style="background: rgba(25, 135, 84, 0.1);">
+                    <div class="text-success fw-bold xsmall">
+                        <i class="bi bi-patch-check-fill me-1"></i> LICENCIA ACTIVA
+                    </div>
                     @if (LicenseService.ExpiryDate.HasValue)
                     {
-                        <span class="text-white-50 mt-1">Vto: @LicenseService.ExpiryDate.Value.ToString("dd/MM/yyyy")</span>
+                        <div class="text-white opacity-75 xsmall mt-1">Vto: @LicenseService.ExpiryDate.Value.ToString("dd/MM/yyyy")</div>
                     }
                 </div>
             </div>
@@ -85,7 +87,7 @@
 
         <div class="nav-item px-3 mt-auto mb-2 text-center border-top border-white border-opacity-10 pt-3">
             <span class="text-white-50 xsmall opacity-75">
-                 v@AppVersion
+                 v@(AppVersion)
             </span>
         </div>
 
