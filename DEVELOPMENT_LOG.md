@@ -17,6 +17,10 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 
 ## 📜 Historial de Cambios Recientes
 
+### 🗓️ 2026-04-12 (v3.5.42)
+*   **Restauración del Batch Definitivo (Max Velocidad):** Se revirtió la transmisión estrictamente secuencial de a 1 PLU (`batchSize = 1`) y se reinstauró el envío por lotes masivos globales (`batchSize = items.Count`). Esto erradica el exceso de demoras y llamadas al driver, maximizando el rendimiento en despliegues concurrentes sin afectar los offsets de la plantilla subyacente.
+*   **Descarga de Trama .DAT Funcional:** Se implementó `download.js` inyectado por JS Interop en `App.razor` para habilitar la descarga manual segura del archivo de texto .DAT sin necesidad de enviar físicamente a la balanza. También se corrigió un problema de 'case-insensitivity' al capturar el resultado que simulaba un falso `Error al generar los archivos`.
+
 ### 🗓️ 2026-04-11 (v3.5.39)
 *   **Transmisión Secuencial Definitiva:** La "Transmisión por Lotes" utilizada presuntamente con éxito en la versión 3.5.30 fue nuevamente reintroducida (v3.5.38) bajo prueba controlada y falló en reproducir un éxito real de escritura remota, confirmando la cruda realidad del ecosistema nativo: **`digiwtcp.exe` no puede y jamás ha podido enviar múltiples registros (F37 Batch Uploads) de manera correcta.**
 *   El falso éxito observado en bitácoras pasadas se debía únicamente a que la balanza abortaba la lectura al toparse con el segundo PLU (que siempre falla la decodificación interna por falta de cabeceras TCP/IP complejas que el binario simple omite), ignorando el resto del archivo pero validando como OK el primero. Se ha anclado matemáticamente el `batchSize = 1` haciendo la comunicación *completamente secuencial, confiable e insustituible*. No más engaños por limitaciones arcaicas.
@@ -114,4 +118,4 @@ Este documento sirve como memoria técnica y registro de decisiones críticas pa
 *   **Reversión de Código de Barras (Rollback):** Restauración desde backup funcional.
 
 ---
-*Última actualización: 2026-04-11 (v3.5.39)*
+*Última actualización: 2026-04-12 (v3.5.42)*

@@ -2,9 +2,13 @@ namespace BalanzaQ.Web.Data;
 
 public static class AppConstants
 {
-    public const string AppVersion = "v3.5.39";
-    /*Última actualización: 2026-04-11 (v3.5.39)
-*   **Paralelismo Multiescala:** Se implementó ejecución concurrente mediante `Task.WhenAll`. Ahora el sistema transmite a todas las balanzas habilitadas de forma simultánea en lugar de procesarlas una por una. Esto multiplica la velocidad total por el número de balanzas activas, manteniendo el envío secuencial interno para máxima fiabilidad en cada equipo.
+    public const string AppVersion = "v3.5.42";
+    /*Última actualización: 2026-04-12 (v3.5.42)
+*   **Restauración del Batch Definitivo y JS Download:** Se revirtió el tamaño de lote unitario (`batchSize = 1`) y se restableció el envío masivo en bloque (`batchSize = items.Count`) para maximizar la velocidad de transmisión. Además, se integró interop JavaScript (`download.js`) en la UI y se hizo 'case-insensitive' la verificación de éxito para garantizar que el aplicativo Blazor pueda forzar adecuadamente la descarga de los archivos .DAT.
+
+### 🗓️ 2026-04-12 (v3.5.42)
+*   **Restauración del Batch Definitivo (Max Velocidad):** Se revirtió la transmisión estrictamente secuencial de a 1 PLU (`batchSize = 1`) y se reinstauró el envío por lotes masivos globales (`batchSize = items.Count`). Esto erradica el exceso de demoras y llamadas al driver, maximizando el rendimiento.
+*   **Descarga de `.DAT` habilitada:** Se inyectó JS Interop (`download.js`) en `App.razor` para permitir que los archivos `.DAT` generados sean descargados como blobs desde el navegador cuando se selecciona no enviar de inmediato, solucionando el falso "Error al generar los archivos.".
 
 ### 🗓️ 2026-04-11 (v3.5.39)
 *   **Transmisión Secuencial Definitiva:** La "Transmisión por Lotes" utilizada presuntamente con éxito en la versión 3.5.30 fue nuevamente reintroducida (v3.5.38) bajo prueba controlada y falló en reproducir un éxito real de escritura remota, confirmando la cruda realidad del ecosistema nativo: **`digiwtcp.exe` no puede y jamás ha podido enviar múltiples registros (F37 Batch Uploads) de manera correcta.**
