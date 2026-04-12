@@ -112,8 +112,8 @@
                             <input type="checkbox" class="form-check-input" checked="@seleccionados.Contains(p.PluCode)" @onchange="(e) => ToggleSeleccion(p.PluCode, e)" />
                         </td>
                         <td><strong>@p.PluCode</strong></td>
-                        <td>@(p.ShortName?.Length > 15 ? p.ShortName.Substring(0,15)+"..." : p.ShortName)</td>
-                        <td>@(p.Name?.Length > 30 ? p.Name.Substring(0,30)+"..." : p.Name)</td>
+                        <td>@(p.Name?.Length > 15 ? p.Name.Substring(0,15)+"..." : p.Name)</td>
+                        <td>@(p.ShortName?.Length > 30 ? p.ShortName.Substring(0,30)+"..." : p.ShortName)</td>
                         <td class="text-success fw-bold">@p.Price.ToString("N2")</td>
                         <td>@p.Group</td>
                         <td>@p.Section</td>
@@ -217,14 +217,14 @@
                         </div>
                         
                         <div class="col-md-12">
-                            <label class="form-label fw-bold">Nombre en Etiqueta</label>
-                            <input type="text" class="form-control" @bind="Model.Name" />
-                            <small class="text-muted">Recomendado: 30-35 caracteres.</small>
+                            <label class="form-label fw-bold">Nombre en Etiqueta (Balanza)</label>
+                            <input type="text" class="form-control" @bind="Model.ShortName" />
+                            <small class="text-muted">Este nombre es el que se transmite a la balanza (máx 28 carac).</small>
                         </div>
                         
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Nombre Corto</label>
-                            <input type="text" class="form-control" @bind="Model.ShortName" />
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold">Nombre Ticket / Referencia</label>
+                            <input type="text" class="form-control" @bind="Model.Name" />
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Tipo de Artículo</label>

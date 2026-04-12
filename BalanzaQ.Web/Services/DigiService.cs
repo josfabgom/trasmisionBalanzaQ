@@ -93,7 +93,7 @@ public class DigiService
                     int precioFinal = (int)Math.Round(item.Price * 10);
                     Array.Copy(IntToBcdArray(precioFinal, 3), 0, record, 12, 3);
 
-                    string nameToUse = item.Name ?? "";
+                    string nameToUse = item.ShortName ?? "";
                     if (nameToUse.Length > 28) nameToUse = nameToUse.Substring(0, 28);
                     byte[] nameBytes = Encoding.ASCII.GetBytes(nameToUse);
                     int currentLen = nameBytes.Length;
