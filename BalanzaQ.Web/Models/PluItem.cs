@@ -17,6 +17,7 @@ public class PluItem
     public string? LastSyncStatus { get; set; }
     public string? LastSyncError { get; set; }
     public DateTime? LastSyncDate { get; set; }
+    public DateTime? LastUpdateDate { get; set; }
 
     public int ShelfLife { get; set; }
     public int BarcodeFormat { get; set; } // Nuevo: permite elegir formato de barras

@@ -62,10 +62,20 @@ public class ImportService
 
                     if (int.TryParse(parts[4], out int rawt)) plu.RawType = rawt;
                     if (int.TryParse(parts[5], out int grupo)) plu.Group = grupo;
-                    if (int.TryParse(parts[13], out int vidaUtil)) plu.ShelfLife = vidaUtil;
-                    if (int.TryParse(parts[14], out int seccion)) plu.Section = seccion;
                     
-                    plu.ItemType = parts[12]?.Trim() ?? "P"; // 'P' o 'N'
+                    if (parts.Length > 12) plu.ItemType = parts[12]?.Trim() ?? "P"; // 'P' o 'N'
+                    
+                    if (parts.Length > 13) 
+                    {
+                        if (int.TryParse(parts[13], out int seccion)) plu.Section = seccion;
+                    }
+                    if (parts.Length > 14) 
+                    {
+                        if (int.TryParse(parts[14], out int vidaUtil)) plu.ShelfLife = vidaUtil;
+                    }
+                    
+                    plu.IsSyncronized = false; // Marcar como novedad/no sincronizado
+                    plu.LastUpdateDate = DateTime.Now; // Registrar fecha de actualización
 
                     if (isNew)
                     {

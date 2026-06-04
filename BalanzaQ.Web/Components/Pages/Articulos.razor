@@ -5,6 +5,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject BalanzaDbContext DbContext
 @inject BalanzaQ.Web.Services.DigiService DigiService
+@inject BalanzaQ.Web.Services.KretzService KretzService
 @inject BalanzaQ.Web.Services.ImportService ImportService
 @inject IJSRuntime JS
 
@@ -42,6 +43,9 @@
                 <li><hr class="dropdown-divider mx-2"></li>
                 <li><button class="dropdown-item py-2 text-danger" @onclick="SeleccionarFallidos">
                     <i class="bi bi-exclamation-triangle me-2"></i>Seleccionar Fallidos
+                </button></li>
+                <li><button class="dropdown-item py-2 text-info" @onclick="SeleccionarNovedades">
+                    <i class="bi bi-star me-2"></i>Seleccionar Novedades
                 </button></li>
             </ul>
         </div>
@@ -122,6 +126,9 @@
                         <td>
                             <div class="fw-bold text-dark small text-uppercase">@p.ShortName</div>
                             <div class="text-muted xsmall truncate" style="max-width: 300px;">@p.Name</div>
+                            @if (p.LastUpdateDate.HasValue) {
+                                <div class="xsmall text-muted mt-1"><i class="bi bi-clock-history"></i> Imp: @p.LastUpdateDate.Value.ToString("dd/MM/yy HH:mm")</div>
+                            }
                         </td>
                         <td class="text-end fw-bold text-dark pe-4">
                             $ @p.Price.ToString("N2")
@@ -142,6 +149,9 @@
                                 <span class="badge bg-success-soft text-success rounded-pill px-3 py-1" title="Sincronizado el @p.LastSyncDate?.ToString("g")">
                                     <i class="bi bi-check-circle-fill me-1"></i> Sincronizado
                                 </span>
+                                @if (p.LastSyncDate.HasValue) {
+                                    <div class="xsmall text-muted mt-1">@p.LastSyncDate.Value.ToString("dd/MM/yy HH:mm")</div>
+                                }
                             }
                             else if (p.LastSyncStatus == "Verificando")
                             {
@@ -365,6 +375,19 @@
         FiltrarLista();
     }
 
+    private void SeleccionarNovedades()
+    {
+        seleccionados.Clear();
+        var novedades = todosArticulos.Where(x => !x.IsSyncronized).ToList();
+        foreach (var p in novedades)
+        {
+            seleccionados.Add(p.PluCode);
+        }
+        Mensaje = novedades.Any() ? $"Se han seleccionado {novedades.Count} novedades." : "No hay novedades pendientes de sincronizar.";
+        ClaseAlerta = novedades.Any() ? "alert-info" : "alert-light";
+        FiltrarLista();
+    }
+
     private async Task SincronizarLocal()
     {
         _isSyncing = true;
@@ -396,7 +419,7 @@
 
                 Mensaje = $"Sincronización local exitosa. Se actualizaron {importados} artículos.";
                 ClaseAlerta = "alert-success";
-                await CargarDatos();
+                await CargarDatos(true);
             }
             else
             {
@@ -443,27 +466,49 @@
                 _progressText = $"Conectando con {b.IpAddress} ({balanzaIndex}/{balanzas.Count})...";
                 StateHasChanged();
 
-                var res = await DigiService.SyncBalanzaAsync(b, articulosSeleccionados, enviarABalanza, (current, total) => {
-                    _currentProgress = ((balanzaIndex - 1) * total) + current;
-                    _progressText = $"Transmitiendo a {b.IpAddress}: {current}/{total} PLUs";
-                    StateHasChanged();
-                }, batchId);
+                (string Message, string HexPayload) res;
+                if (b.Brand == "KRETZ")
+                {
+                    res = await KretzService.SyncBalanzaAsync(b, articulosSeleccionados, enviarABalanza, (current, total) => {
+                        _currentProgress = ((balanzaIndex - 1) * total) + current;
+                        _progressText = $"Transmitiendo a {b.IpAddress}: {current}/{total} PLUs";
+                        StateHasChanged();
+                    }, batchId);
+                }
+                else
+                {
+                    res = await DigiService.SyncBalanzaAsync(b, articulosSeleccionados, enviarABalanza, (current, total) => {
+                        _currentProgress = ((balanzaIndex - 1) * total) + current;
+                        _progressText = $"Transmitiendo a {b.IpAddress}: {current}/{total} PLUs";
+                        StateHasChanged();
+                    }, batchId);
+                }
 
                 b.LastSyncDate = DateTime.Now;
                 b.LastSyncStatus = res.Message;
                 
                 if (res.Message.Contains("Exito", StringComparison.OrdinalIgnoreCase) || 
                     res.Message.Contains("exitosos", StringComparison.OrdinalIgnoreCase) || 
-                    res.Message.Contains("generad", StringComparison.OrdinalIgnoreCase))
+                    res.Message.Contains("generad", StringComparison.OrdinalIgnoreCase) ||
+                    res.Message.Contains("CSV", StringComparison.OrdinalIgnoreCase))
                 {
                     exitos++;
                     
                     if (!enviarABalanza && !string.IsNullOrEmpty(res.HexPayload))
                     {
-                        var bytes = System.Text.Encoding.ASCII.GetBytes(res.HexPayload);
+                        var bytes = System.Text.Encoding.UTF8.GetBytes(res.HexPayload);
                         using var streamRef = new DotNetStreamReference(new MemoryStream(bytes));
-                        await JS.InvokeVoidAsync("downloadFileFromStream", $"SM{b.IpAddress}F37.DAT", streamRef);
+                        string fileName = b.Brand == "KRETZ" ? $"Kretz_PLU_{b.IpAddress}.csv" : $"SM{b.IpAddress}F37.DAT";
+                        await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
                     }
+                }
+            }
+
+            if (exitos > 0)
+            {
+                foreach (var art in articulosSeleccionados)
+                {
+                    art.IsSyncronized = true;
                 }
             }
 
@@ -488,18 +533,40 @@
         finally
         {
             _isSyncing = false;
+            await CargarDatos(true);
         }
     }
 
     protected override async Task OnInitializedAsync()
     {
-        await CargarDatos();
+        await CargarDatos(true);
     }
 
-    private async Task CargarDatos()
+    private async Task CargarDatos(bool autoSelectNovedades = false)
     {
-        todosArticulos = await DbContext.PluItems.OrderBy(p => p.PluCode).ToListAsync();
+        // FIX: Si absolutamente todos los artículos figuran como novedad (estado inicial post-migración),
+        // los marcamos como sincronizados para que la selección automática funcione bien de acá en más.
+        var totalItems = await DbContext.PluItems.CountAsync();
+        var unsyncedItems = await DbContext.PluItems.CountAsync(p => !p.IsSyncronized);
+        if (totalItems > 0 && totalItems == unsyncedItems)
+        {
+            await DbContext.Database.ExecuteSqlRawAsync("UPDATE PluItems SET IsSyncronized = 1");
+        }
+
+        todosArticulos = await DbContext.PluItems
+            .OrderBy(p => p.IsSyncronized)
+            .ThenBy(p => p.PluCode)
+            .ToListAsync();
         FiltrarLista();
+        
+        if (autoSelectNovedades)
+        {
+            seleccionados.Clear();
+            foreach (var p in todosArticulos.Where(a => !a.IsSyncronized))
+            {
+                seleccionados.Add(p.PluCode);
+            }
+        }
     }
 
     private void FiltrarLista()

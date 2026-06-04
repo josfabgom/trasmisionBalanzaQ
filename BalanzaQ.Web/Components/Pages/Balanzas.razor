@@ -56,7 +56,7 @@
                     <tr>
                         <td class="ps-4">
                             <div class="fw-bold text-dark">@b.IpAddress</div>
-                            <div class="xsmall text-muted">ID: #@b.Id</div>
+                            <div class="xsmall text-muted">ID: #@b.Id <span class="badge bg-secondary-soft text-secondary ms-1">@b.Brand</span></div>
                         </td>
                         <td class="text-center">
                             @if (_pingStatus.ContainsKey(b.Id))
@@ -127,6 +127,13 @@
                     <div class="mb-3">
                         <label>Descripción / Sector</label>
                         <input type="text" class="form-control" @bind="Model.Description" placeholder="Ej: Fiambreria 1" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Marca / Modelo de Balanza</label>
+                        <select class="form-select" @bind="Model.Brand">
+                            <option value="DIGI">DIGI (SM-100/300/500)</option>
+                            <option value="KRETZ">KRETZ (Report NX2 / iTegra)</option>
+                        </select>
                     </div>
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" id="switchEnabled" @bind="Model.IsEnabled">
@@ -233,7 +240,8 @@
             Description = b.Description,
             IsEnabled = b.IsEnabled,
             LastSyncDate = b.LastSyncDate,
-            LastSyncStatus = b.LastSyncStatus
+            LastSyncStatus = b.LastSyncStatus,
+            Brand = b.Brand
         };
         ShowModal = true;
     }
@@ -261,6 +269,7 @@
                 dbItem.IpAddress = Model.IpAddress;
                 dbItem.Description = Model.Description;
                 dbItem.IsEnabled = Model.IsEnabled;
+                dbItem.Brand = Model.Brand;
             }
         }
         await DbContext.SaveChangesAsync();

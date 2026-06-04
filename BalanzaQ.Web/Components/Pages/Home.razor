@@ -7,6 +7,7 @@
 @inject BalanzaDbContext DbContext
 @inject ImportService ImportService
 @inject DigiService DigiService
+@inject KretzService KretzService
 @inject BrandingService BrandingService
 @inject IJSRuntime JS
 
@@ -268,23 +269,35 @@
                 _statusMessage = $"Sincronizando {b.IpAddress}...";
                 StateHasChanged();
 
-                var res = await DigiService.SyncBalanzaAsync(b, articulos, enviarABalanza, (current, total) => {
-                    // Este callback se llama en cada lote
-                    _currentStep++;
-                    _progressPercent = (int)((double)_currentStep / _totalSteps * 100);
-                    _statusMessage = $"Balanza {b.IpAddress}: {current}/{total} PLUs";
-                    StateHasChanged();
-                }, batchId);
+                (string Message, string HexPayload) res;
+                if (b.Brand == "KRETZ")
+                {
+                    res = await KretzService.SyncBalanzaAsync(b, articulos, enviarABalanza, (current, total) => {
+                        _currentStep++;
+                        _progressPercent = (int)((double)_currentStep / _totalSteps * 100);
+                        _statusMessage = $"Balanza {b.IpAddress}: {current}/{total} PLUs";
+                        StateHasChanged();
+                    }, batchId);
+                }
+                else
+                {
+                    res = await DigiService.SyncBalanzaAsync(b, articulos, enviarABalanza, (current, total) => {
+                        _currentStep++;
+                        _progressPercent = (int)((double)_currentStep / _totalSteps * 100);
+                        _statusMessage = $"Balanza {b.IpAddress}: {current}/{total} PLUs";
+                        StateHasChanged();
+                    }, batchId);
+                }
 
                 b.LastSyncDate = DateTime.Now;
                 b.LastSyncStatus = res.Message;
                 
-                if(res.Message.Contains("Exito") || res.Message.Contains("Generado"))
+                if(res.Message.Contains("Exito") || res.Message.Contains("Generado") || res.Message.Contains("CSV"))
                 {
                     exitos++;
                     if (!enviarABalanza && !string.IsNullOrEmpty(res.HexPayload))
                     {
-                        string fileName = $"SM{b.IpAddress}F37.DAT";
+                        string fileName = b.Brand == "KRETZ" ? $"Kretz_PLU_{b.IpAddress}.csv" : $"SM{b.IpAddress}F37.DAT";
                         await JS.InvokeVoidAsync("downloadTextFile", fileName, res.HexPayload);
                     }
                 }

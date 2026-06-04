@@ -8,4 +8,5 @@ public class Balanza
     public bool IsEnabled { get; set; } = true;
     public string LastSyncStatus { get; set; } = "Nunca sincronizado";
     public DateTime? LastSyncDate { get; set; }
+    public string Brand { get; set; } = "DIGI";
 }
