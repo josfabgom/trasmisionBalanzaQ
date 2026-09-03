@@ -2,10 +2,10 @@ namespace BalanzaQ.Web.Data;
 
 public static class AppConstants
 {
-    public const string AppVersion = "v3.5.75";
+    public const string AppVersion = "v3.8.1";
     public const string AppName = "BalanzaQ";
-    /*Última actualización: 2026-04-12 (v3.5.75)
-*   **Versión de Producción Estable (v3.5.75):** Finalización de toda la modernización visual, branding dinámico y favicon.
+    /*Última actualización: 2026-07-23 (v3.7.0)
+*   **Versión de Producción Estable (v3.7.0):** Actualización general y publicación del nuevo build portable.
 *   **Favicon Dinámico (v3.5.70.4):** Sincronización automática del logo corporativo...
 *   **Localización y Pulido Premium (v3.5.70):** Traducción completa al español de todos los módulos...
 *   **Rediseño Premium (v3.5.60):** Optimización total de las interfaces de Artículos y Auditoría. Se eliminó el modo simulación y se implementaron cabeceras y listas de alta fidelidad con efectos de hover y paletas suaves.

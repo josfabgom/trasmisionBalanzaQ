@@ -26,7 +26,39 @@
             <span class="input-group-text bg-white border-0 pe-0"><i class="bi bi-search text-muted"></i></span>
             <input type="text" class="form-control border-0 ps-2 py-2" placeholder="Buscar PLU o nombre..." @bind="terminoBusqueda" @bind:event="oninput" @onkeyup="FiltrarLista" />
         </div>
-        
+        <div class="dropdown">
+            <button class="btn btn-white bg-white border rounded-pill shadow-sm dropdown-toggle text-start d-flex justify-content-between align-items-center" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="width: 240px;" disabled="@_isSyncing">
+                <span class="text-truncate">
+                    <i class="bi bi-pc-display-horizontal me-2 text-primary"></i>
+                    <span class="fw-medium">@GetBalanzaSelectionText()</span>
+                </span>
+            </button>
+            <ul class="dropdown-menu shadow-premium border-0 rounded-4 py-2 mt-2" style="min-width: 240px;">
+                <li>
+                    <a class="dropdown-item py-2 d-flex align-items-center" style="cursor: pointer;" @onclick="SeleccionarTodasBalanzas">
+                        <i class="bi @(balanzasSeleccionadas.Count > 0 && balanzasSeleccionadas.Count == balanzasActivas.Count ? "bi-check-circle-fill text-primary" : "bi-circle text-muted") me-3 fs-5"></i>
+                        <span class="fw-bold">Todas las Balanzas</span>
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider mx-2"></li>
+                @if(balanzasActivas != null)
+                {
+                    @foreach (var b in balanzasActivas)
+                    {
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center" style="cursor: pointer;" @onclick="() => ToggleBalanza(b.Id)">
+                                <i class="bi @(balanzasSeleccionadas.Contains(b.Id) ? "bi-check-square-fill text-primary" : "bi-square text-muted") me-3 fs-5"></i>
+                                <div class="d-flex flex-column">
+                                    <span>@b.Description</span>
+                                    <span class="text-muted xsmall">@b.IpAddress</span>
+                                </div>
+                            </a>
+                        </li>
+                    }
+                }
+            </ul>
+        </div>
+
         <div class="btn-group shadow-sm rounded-pill overflow-hidden">
             <button class="btn btn-primary px-4 fw-bold" @onclick="() => SincronizarSeleccionados(true)" disabled="@(!seleccionados.Any() || _isSyncing)">
                 @if (_isSyncing) { <span class="spinner-border spinner-border-sm me-2"></span> }
@@ -53,8 +85,13 @@
         <button class="btn btn-white bg-white shadow-sm rounded-circle p-2 border" @onclick="SincronizarLocal" disabled="@_isSyncing" title="Sincronizar con data.dat">
             <i class="bi bi-arrow-repeat fs-5 text-primary"></i>
         </button>
+
+        <button class="btn btn-success shadow-sm rounded-pill px-3 fw-bold anim-fade-in" @onclick="Crear" disabled="@_isSyncing">
+            <i class="bi bi-plus-lg me-1"></i> Nuevo Artículo
+        </button>
     </div>
 </div>
+
 
 @if (_isSyncing)
 {
@@ -173,12 +210,15 @@
                             }
                         </td>
                         <td class="pe-4 text-end">
-                             <div class="btn-group shadow-sm rounded-3 overflow-hidden border">
+                            <div class="btn-group shadow-sm rounded-3 overflow-hidden border">
                                  <button class="btn btn-sm btn-white bg-white text-primary border-0 border-end py-2 px-3" @onclick="() => Editar(p)" title="Editar">
                                      <i class="bi bi-pencil-square"></i>
                                  </button>
-                                 <button class="btn btn-sm btn-white bg-white text-info border-0 py-2 px-3" @onclick="() => Previsualizar(p)" title="Vista Previa">
+                                 <button class="btn btn-sm btn-white bg-white text-info border-0 border-end py-2 px-3" @onclick="() => Previsualizar(p)" title="Vista Previa">
                                      <i class="bi bi-eye"></i>
+                                 </button>
+                                 <button class="btn btn-sm btn-white bg-white text-danger border-0 py-2 px-3" @onclick="() => Eliminar(p)" title="Eliminar">
+                                     <i class="bi bi-trash"></i>
                                  </button>
                              </div>
                          </td>
@@ -236,7 +276,7 @@
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Código PLU Base</label>
-                            <input type="number" class="form-control bg-light" @bind="Model.PluCode" disabled />
+                            <input type="number" class="form-control @(Model.Id == 0 ? "" : "bg-light")" @bind="Model.PluCode" disabled="@(Model.Id != 0)" />
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Precio ($)</label>
@@ -263,7 +303,7 @@
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Tipo de Artículo</label>
                             <select class="form-select" @bind="Model.ItemType">
-                                <option value="P">Persable (Peso/kg)</option>
+                                <option value="P">Pesable (Peso/kg)</option>
                                 <option value="N">No Pesable (Unidad)</option>
                             </select>
                         </div>
@@ -327,8 +367,39 @@
     private bool ShowPreviewModal = false;
     private string? lastGeneratedHex;
     private string? hexBueno;
+    private List<Balanza> balanzasActivas = new();
+    private HashSet<int> balanzasSeleccionadas = new();
 
     private int GetProgressPercentage() => _totalProgress > 0 ? (int)((double)_currentProgress / _totalProgress * 100) : 0;
+
+    private string GetBalanzaSelectionText()
+    {
+        if (balanzasActivas == null || !balanzasActivas.Any()) return "Sin balanzas";
+        if (balanzasSeleccionadas.Count == balanzasActivas.Count) return "Todas las Balanzas";
+        if (balanzasSeleccionadas.Count == 1) 
+        {
+            var b = balanzasActivas.FirstOrDefault(x => x.Id == balanzasSeleccionadas.First());
+            return b != null ? b.Description : "Seleccionada";
+        }
+        if (balanzasSeleccionadas.Count == 0) return "Ninguna seleccionada";
+        return $"{balanzasSeleccionadas.Count} seleccionadas";
+    }
+
+    private void ToggleBalanza(int id)
+    {
+        if (balanzasSeleccionadas.Contains(id))
+            balanzasSeleccionadas.Remove(id);
+        else
+            balanzasSeleccionadas.Add(id);
+    }
+
+    private void SeleccionarTodasBalanzas()
+    {
+        if (balanzasSeleccionadas.Count == balanzasActivas.Count)
+            balanzasSeleccionadas.Clear();
+        else
+            balanzasSeleccionadas = new HashSet<int>(balanzasActivas.Select(b => b.Id));
+    }
 
     private string GetDiffSummary()
     {
@@ -444,7 +515,18 @@
         _isSyncing = true;
         try
         {
-            var balanzas = await DbContext.Balanzas.Where(b => b.IsEnabled).ToListAsync();
+            if (!balanzasSeleccionadas.Any())
+            {
+                Mensaje = "Debes seleccionar al menos una balanza de destino.";
+                ClaseAlerta = "alert-warning";
+                _isSyncing = false;
+                return;
+            }
+
+            var balanzas = await DbContext.Balanzas
+                .Where(b => b.IsEnabled && balanzasSeleccionadas.Contains(b.Id))
+                .ToListAsync();
+            
             var articulosSeleccionados = todosArticulos.Where(a => seleccionados.Contains(a.PluCode)).ToList();
 
             if (!balanzas.Any())
@@ -539,6 +621,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        balanzasActivas = await DbContext.Balanzas.Where(b => b.IsEnabled).ToListAsync();
+        balanzasSeleccionadas = new HashSet<int>(balanzasActivas.Select(b => b.Id));
         await CargarDatos(true);
     }
 
@@ -611,22 +695,76 @@
 
     private async Task Guardar()
     {
-        var dbItem = await DbContext.PluItems.FindAsync(Model.Id);
-        if (dbItem != null)
+        if (Model.Id == 0)
         {
-            dbItem.Name = Model.Name;
-            dbItem.ShortName = Model.ShortName;
-            dbItem.Price = Model.Price;
-            dbItem.ShelfLife = Model.ShelfLife;
-            dbItem.ItemType = Model.ItemType;
-            dbItem.LabelFormat = Model.LabelFormat;
-            dbItem.BarcodeFormat = Model.BarcodeFormat;
+            // Alta
+            var existing = await DbContext.PluItems.FirstOrDefaultAsync(p => p.PluCode == Model.PluCode);
+            if (existing != null)
+            {
+                Mensaje = $"Ya existe un artículo con el código PLU {Model.PluCode}.";
+                ClaseAlerta = "alert-warning";
+                return;
+            }
+
+            Model.LastUpdateDate = DateTime.Now;
+            Model.IsSyncronized = false;
+            DbContext.PluItems.Add(Model);
             await DbContext.SaveChangesAsync();
-            
-            Mensaje = $"Artículo {dbItem.PluCode} actualizado correctamente.";
+
+            Mensaje = $"Artículo {Model.PluCode} creado correctamente.";
             ClaseAlerta = "alert-success";
             await CargarDatos();
             ShowModal = false;
+        }
+        else
+        {
+            // Modificación
+            var dbItem = await DbContext.PluItems.FindAsync(Model.Id);
+            if (dbItem != null)
+            {
+                dbItem.Name = Model.Name;
+                dbItem.ShortName = Model.ShortName;
+                dbItem.Price = Model.Price;
+                dbItem.ShelfLife = Model.ShelfLife;
+                dbItem.ItemType = Model.ItemType;
+                dbItem.LabelFormat = Model.LabelFormat;
+                dbItem.BarcodeFormat = Model.BarcodeFormat;
+                await DbContext.SaveChangesAsync();
+                
+                Mensaje = $"Artículo {dbItem.PluCode} actualizado correctamente.";
+                ClaseAlerta = "alert-success";
+                await CargarDatos();
+                ShowModal = false;
+            }
+        }
+    }
+
+    private void Crear()
+    {
+        Model = new PluItem
+        {
+            Id = 0,
+            ItemType = "P",
+            LabelFormat = 0,
+            BarcodeFormat = 0
+        };
+        ShowModal = true;
+    }
+
+    private async Task Eliminar(PluItem p)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", $"¿Está seguro que desea eliminar el artículo {p.PluCode}?");
+        if (confirmed)
+        {
+            var dbItem = await DbContext.PluItems.FindAsync(p.Id);
+            if (dbItem != null)
+            {
+                DbContext.PluItems.Remove(dbItem);
+                await DbContext.SaveChangesAsync();
+                Mensaje = $"Artículo {p.PluCode} eliminado correctamente.";
+                ClaseAlerta = "alert-success";
+                await CargarDatos();
+            }
         }
     }
 

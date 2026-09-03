@@ -52,6 +52,14 @@ public class KretzService
             // Header obligatorio (o recomendado):
             // NUMERO DE PLU;CODIGO DE PLU;NOMBRE DE PLU;CODIGO DE DEPARTAMENTO;PRECIO;TIPO DE PLU;CODIGO DE ETIQUETA
             
+            // Leer configuración global de longitud de código (4 o 5)
+            int barcodeCodeLength = 5;
+            var lenSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeItemCodeLength");
+            if (lenSetting != null && int.TryParse(lenSetting.Value, out int parsedLen))
+            {
+                barcodeCodeLength = parsedLen;
+            }
+
             var csvBuilder = new StringBuilder();
             csvBuilder.AppendLine("NUMERO DE PLU;CODIGO DE PLU;NOMBRE DE PLU;CODIGO DE DEPARTAMENTO;PRECIO;TIPO DE PLU;CODIGO DE ETIQUETA");
 
@@ -63,7 +71,9 @@ public class KretzService
                 int numPlu = item.PluCode;
                 
                 // 2. CODIGO DE PLU (max 5 digitos para balanza standard, o usar PluCode)
-                int codPlu = item.PluCode > 99999 ? item.PluCode % 100000 : item.PluCode;
+                // Adaptamos el módulo a la longitud requerida (ej. 10000 para 4 dígitos, 100000 para 5 dígitos)
+                int divisorLength = (int)Math.Pow(10, barcodeCodeLength);
+                int codPlu = item.PluCode >= divisorLength ? item.PluCode % divisorLength : item.PluCode;
                 
                 // 3. NOMBRE DE PLU (max 26 caracteres en iTegra Kretz)
                 string nameToUse = !string.IsNullOrWhiteSpace(item.ShortName) ? item.ShortName : item.Name;

@@ -183,16 +183,37 @@ else
             </div>
             <div class="card-body p-4">
                 <div class="row g-3 align-items-end">
-                    <div class="col-md-7">
-                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Separador de Columnas (.DAT)</label>
+                    <div class="col-md-3">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Separador (.DAT)</label>
                         <div class="input-group shadow-sm rounded-3 overflow-hidden">
                             <span class="input-group-text bg-light border-0"><i class="bi bi-distribute-vertical text-primary"></i></span>
                             <input type="text" class="form-control border-0 bg-light" @bind="separatorValue" maxlength="5" placeholder="Ej: ; o , o |" />
                         </div>
                     </div>
-                    <div class="col-md-5">
-                        <button class="btn btn-primary w-100 py-2 shadow-sm" @onclick="GuardarConfiguracion">
-                            <i class="bi bi-save me-2"></i> Guardar
+                    <div class="col-md-3">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Cantidad de dígitos del código PLU dentro del código de barras (ej. 4 para 2+4+6, 5 para 2+5+5)">Dígitos Barras</label>
+                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-upc-scan text-primary"></i></span>
+                            <input type="number" class="form-control border-0 bg-light" @bind="barcodeItemCodeLengthValue" min="3" max="6" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Prefijo del código de barras para artículos pesados (Ej. 20)">Bandera (Pes.)</label>
+                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-tag text-primary"></i></span>
+                            <input type="number" class="form-control border-0 bg-light" @bind="barcodeFlagPesableValue" min="1" max="99" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Prefijo del código de barras para artículos unitarios (Ej. 21)">Bandera (Uni.)</label>
+                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-tag-fill text-primary"></i></span>
+                            <input type="number" class="form-control border-0 bg-light" @bind="barcodeFlagUnitarioValue" min="1" max="99" />
+                        </div>
+                    </div>
+                    <div class="col-12 mt-3 text-end">
+                        <button class="btn btn-primary px-4 py-2 shadow-sm" @onclick="GuardarConfiguracion">
+                            <i class="bi bi-save me-2"></i> Guardar Configuración
                         </button>
                     </div>
                 </div>
@@ -267,6 +288,25 @@ else
     </div>
 </div>
 
+<div class="row g-4 mb-4 anim-fade-in" style="animation-delay: 0.25s;">
+    <div class="col-12">
+        <div class="card card-premium shadow-sm border-0 border-start border-danger border-4" style="border-left: 4px solid #dc3545 !important;">
+            <div class="card-header bg-white border-0 py-3 ps-4">
+                <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-database-x text-danger me-2"></i>Base de Datos Local (Software)</h6>
+            </div>
+            <div class="card-body p-4">
+                <p class="xsmall text-muted mb-3">Elimina todos los artículos (PLU) almacenados localmente en esta aplicación. Útil para limpiar el sistema antes de instalarlo en un cliente nuevo.</p>
+                <button class="btn btn-outline-danger fw-bold shadow-sm" @onclick="VaciarArticulosLocales" disabled="@_isSyncing">
+                    <i class="bi bi-trash-fill me-2"></i> Vaciar Todos los Artículos Locales
+                </button>
+                @if (!string.IsNullOrEmpty(_localDbMessage)) {
+                    <div class="alert alert-success mt-3 mb-0 xsmall border-0 shadow-sm py-2 anim-fade-in"><i class="bi bi-check-circle-fill me-2"></i> @_localDbMessage</div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4 mb-5 anim-fade-in" style="animation-delay: 0.3s;">
     <div class="col-12">
         <div class="card card-premium shadow-sm border-0">
@@ -321,6 +361,9 @@ else
     
     // Configuración
     private string separatorValue = ";";
+    private int barcodeItemCodeLengthValue = 5;
+    private int barcodeFlagPesableValue = 20;
+    private int barcodeFlagUnitarioValue = 21;
     private string? configMessage;
 
     // Pruebas Hex Crudas
@@ -335,6 +378,7 @@ else
     private string businessLogoBase64 = "";
     private bool _isSavingBranding = false;
     private string? _brandingMessage;
+    private string? _localDbMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -343,6 +387,24 @@ else
         
         var setting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "ImportSeparator");
         separatorValue = setting?.Value ?? ";";
+
+        var barcodeLenSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeItemCodeLength");
+        if (barcodeLenSetting != null && int.TryParse(barcodeLenSetting.Value, out int len))
+        {
+            barcodeItemCodeLengthValue = len;
+        }
+
+        var flagPesSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeFlagPesable");
+        if (flagPesSetting != null && int.TryParse(flagPesSetting.Value, out int fpes))
+        {
+            barcodeFlagPesableValue = fpes;
+        }
+
+        var flagUniSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeFlagUnitario");
+        if (flagUniSetting != null && int.TryParse(flagUniSetting.Value, out int funi))
+        {
+            barcodeFlagUnitarioValue = funi;
+        }
 
         // Cargar Branding
         businessName = BrandingService.BusinessName;
@@ -424,6 +486,39 @@ else
         else
         {
             setting.Value = separatorValue;
+        }
+
+        var barcodeLenSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeItemCodeLength");
+        if (barcodeLenSetting == null)
+        {
+            barcodeLenSetting = new AppSetting { Key = "BarcodeItemCodeLength", Value = barcodeItemCodeLengthValue.ToString() };
+            DbContext.AppSettings.Add(barcodeLenSetting);
+        }
+        else
+        {
+            barcodeLenSetting.Value = barcodeItemCodeLengthValue.ToString();
+        }
+
+        var flagPesSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeFlagPesable");
+        if (flagPesSetting == null)
+        {
+            flagPesSetting = new AppSetting { Key = "BarcodeFlagPesable", Value = barcodeFlagPesableValue.ToString() };
+            DbContext.AppSettings.Add(flagPesSetting);
+        }
+        else
+        {
+            flagPesSetting.Value = barcodeFlagPesableValue.ToString();
+        }
+
+        var flagUniSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeFlagUnitario");
+        if (flagUniSetting == null)
+        {
+            flagUniSetting = new AppSetting { Key = "BarcodeFlagUnitario", Value = barcodeFlagUnitarioValue.ToString() };
+            DbContext.AppSettings.Add(flagUniSetting);
+        }
+        else
+        {
+            flagUniSetting.Value = barcodeFlagUnitarioValue.ToString();
         }
         
         await DbContext.SaveChangesAsync();
@@ -511,6 +606,34 @@ else
             StateHasChanged();
             await Task.Delay(3000);
             _brandingMessage = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task VaciarArticulosLocales()
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", "ATENCIÓN: Esto eliminará TODOS los artículos guardados en la base de datos local del sistema. ¿Estás seguro?");
+        if (!confirmed) return;
+
+        try
+        {
+            _isSyncing = true;
+            StateHasChanged();
+
+            await DbContext.Database.ExecuteSqlRawAsync("DELETE FROM PluItems");
+            
+            _localDbMessage = "Todos los artículos han sido eliminados de la base de datos local.";
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "Error al vaciar artículos: " + ex.Message);
+        }
+        finally
+        {
+            _isSyncing = false;
+            StateHasChanged();
+            await Task.Delay(4000);
+            _localDbMessage = null;
             StateHasChanged();
         }
     }

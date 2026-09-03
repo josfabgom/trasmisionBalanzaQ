@@ -77,6 +77,28 @@ public class DigiService
             // Crear o limpiar el log general de hex
             StringBuilder finalLogAll = new StringBuilder();
 
+            // Leer configuración global de longitud y banderas
+            int barcodeCodeLength = 5;
+            var lenSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeItemCodeLength");
+            if (lenSetting != null && int.TryParse(lenSetting.Value, out int parsedLen))
+            {
+                barcodeCodeLength = parsedLen;
+            }
+
+            int barcodeFlagPesable = 20;
+            var flagPesSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeFlagPesable");
+            if (flagPesSetting != null && int.TryParse(flagPesSetting.Value, out int fpes))
+            {
+                barcodeFlagPesable = fpes;
+            }
+
+            int barcodeFlagUnitario = 21;
+            var flagUniSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeFlagUnitario");
+            if (flagUniSetting != null && int.TryParse(flagUniSetting.Value, out int funi))
+            {
+                barcodeFlagUnitario = funi;
+            }
+
             for (int i = 0; i < items.Count; i += batchSize)
             {
                 List<PluItem> currentBatch = items.GetRange(i, Math.Min(batchSize, items.Count - i));
@@ -102,17 +124,23 @@ public class DigiService
                     record[6] = isPesable ? (byte)0x7C : (byte)0x7D;
                     record[10] = 0x0D; 
                     
-                    // IMPORTANTE: NO sobreescribir Offset 15 y 16. Debemos dejar
-                    // que TEMPLATE.DAT mantenga el formato exacto original (ej. 17 y 5)
-                    // que requiere la balanza para validar cada archivo sin cortarse.
-                    record[17] = 0x20; 
+                    // IMPORTANTE: El offset 17 controla la Bandera (Flag) del código de barras.
+                    // Antes estaba fijo en 0x20. Ahora usamos las banderas configurables.
+                    int flagToUse = isPesable ? barcodeFlagPesable : barcodeFlagUnitario;
+                    // Aseguramos formato BCD para la bandera (ej. 21 -> 0x21)
+                    record[17] = Convert.ToByte(flagToUse.ToString().PadLeft(2, '0'), 16);
 
-                    string pluPart = item.PluCode.ToString().PadLeft(5, '0');
-                    string fillerPart = isPesable ? "0000000" : "1111111"; 
+                    string pluPart = item.PluCode.ToString().PadLeft(barcodeCodeLength, '0');
+                    string fillerPart = isPesable ? new string('0', 12 - barcodeCodeLength) : new string('1', 12 - barcodeCodeLength); 
                     string strCode = (pluPart + fillerPart).Substring(0, 12);
                     byte[] codeBcd = new byte[6];
                     for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
                     Array.Copy(codeBcd, 0, record, 18, 6);
+
+                    // Formato de Etiqueta (Offset 15) y Formato de Código de Barras (Offset 16)
+                    // Si el usuario configuró valores específicos, los aplicamos, si no, se usa el de TEMPLATE.DAT
+                    if (item.LabelFormat > 0) record[15] = (byte)item.LabelFormat;
+                    if (item.BarcodeFormat > 0) record[16] = (byte)item.BarcodeFormat;
 
                     // Offset 24: Días de Vencimiento dinámicos (Sell By - 2 bytes en BCD)
                     byte[] shelfLifeBcdArray = IntToBcdArray(Math.Min(item.ShelfLife, 9999), 2);

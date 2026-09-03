@@ -67,11 +67,11 @@ public class ImportService
                     
                     if (parts.Length > 13) 
                     {
-                        if (int.TryParse(parts[13], out int seccion)) plu.Section = seccion;
+                        if (int.TryParse(parts[13], out int vidaUtil)) plu.ShelfLife = vidaUtil;
                     }
                     if (parts.Length > 14) 
                     {
-                        if (int.TryParse(parts[14], out int vidaUtil)) plu.ShelfLife = vidaUtil;
+                        if (int.TryParse(parts[14], out int seccion)) plu.Section = seccion;
                     }
                     
                     plu.IsSyncronized = false; // Marcar como novedad/no sincronizado
