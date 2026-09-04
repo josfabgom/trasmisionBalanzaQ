@@ -130,8 +130,12 @@ public class DigiService
                     // Aseguramos formato BCD para la bandera (ej. 21 -> 0x21)
                     record[17] = Convert.ToByte(flagToUse.ToString().PadLeft(2, '0'), 16);
 
-                    string pluPart = item.PluCode.ToString().PadLeft(barcodeCodeLength, '0');
-                    string fillerPart = isPesable ? new string('0', 12 - barcodeCodeLength) : new string('1', 12 - barcodeCodeLength); 
+                    // Forzamos a 5 dígitos si el artículo es Unitario (No pesable) para que la balanza lo lea correctamente 
+                    // sin desconfigurar el largo de los artículos Pesables.
+                    int currentLength = (!isPesable) ? 5 : barcodeCodeLength;
+
+                    string pluPart = item.PluCode.ToString().PadLeft(currentLength, '0');
+                    string fillerPart = isPesable ? new string('0', 12 - currentLength) : new string('1', 12 - currentLength); 
                     string strCode = (pluPart + fillerPart).Substring(0, 12);
                     byte[] codeBcd = new byte[6];
                     for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
