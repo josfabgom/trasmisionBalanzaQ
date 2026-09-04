@@ -2,8 +2,9 @@ namespace BalanzaQ.Web.Data;
 
 public static class AppConstants
 {
-    public const string AppVersion = "v3.8.1";
+    public const string AppVersion = "v3.8.2";
     public const string AppName = "BalanzaQ";
+    public const string DemoExpirationDate = "2026-06-30";
     /*Última actualización: 2026-07-23 (v3.7.0)
 *   **Versión de Producción Estable (v3.7.0):** Actualización general y publicación del nuevo build portable.
 *   **Favicon Dinámico (v3.5.70.4):** Sincronización automática del logo corporativo...
