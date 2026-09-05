@@ -120,14 +120,15 @@ public class KretzService
 
             if (enviarABalanza)
             {
-                // Disparar JDataGate Automáticamente
-                // Se asume que JDataGate.exe está en la misma carpeta Jdate, de lo contrario esto puede fallar pero los archivos quedarán listos para polling.
-                string jDataGateExe = Path.Combine(kretzFolder, "JDataGate.exe");
-                if (File.Exists(jDataGateExe))
+                // Disparar DataGate Automáticamente
+                // Se asume que DataGate.exe está en la misma carpeta Jdate
+                string dataGateExe = Path.Combine(kretzFolder, "DataGate.exe");
+                if (File.Exists(dataGateExe))
                 {
                     var psi = new ProcessStartInfo
                     {
-                        FileName = jDataGateExe,
+                        FileName = dataGateExe,
+                        Arguments = "/nografico tx01", // /nografico para no abrir Java Swing, tx01 para forzar la IP/ID 01
                         WorkingDirectory = kretzFolder,
                         UseShellExecute = false,
                         CreateNoWindow = true
