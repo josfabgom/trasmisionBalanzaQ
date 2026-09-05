@@ -97,18 +97,31 @@ public class KretzService
 
                 string typeStr = item.ItemType == "P" ? "P" : "N";
 
-                // Precio: multiplicado por 100 para remover punto decimal, rellenado a 12 caracteres. (ej. 24.12 -> 000000002412)
+                // 1. Valor Fijo (7 dígitos): Siempre 0
+                string valorFijo = "0000000";
+
+                // 2. Precio (7 dígitos): multiplicado por 100 y rellenado con 0 a la izquierda
                 long precioInt = (long)Math.Round(item.Price * 100);
-                string precioStr = precioInt.ToString().PadLeft(12, '0');
+                string precioStr = precioInt.ToString().PadLeft(7, '0');
+                if (precioStr.Length > 7) precioStr = precioStr.Substring(precioStr.Length - 7); // Truncar max 99999.99
 
-                // Vencimiento (ej. 15 días -> 0150000) en el bloque final
-                string vencimientoStr = Math.Min(item.ShelfLife, 999).ToString().PadLeft(3, '0') + "0000";
+                // Precios alternativos, impuestos y taras (36 dígitos en total)
+                string paddingVacios = new string('0', 36);
                 
-                // padding final
-                string paddingFinal = "00000000000000000000000000000000000010000000000" + vencimientoStr;
-                if (paddingFinal.Length > 53) paddingFinal = paddingFinal.Substring(paddingFinal.Length - 53);
+                // Código Etiqueta (2 dígitos)
+                int labelFormat = item.LabelFormat > 0 ? (item.LabelFormat % 100) : 1;
+                string codEtiqueta = labelFormat.ToString().PadLeft(2, '0');
 
-                string recordLine = $"C012005{pluNum}{group}{dept}{nameToUse}{itemCodeStr}{typeStr}{precioStr}{paddingFinal}";
+                // Receta y Nutricional (8 dígitos) + Fecha envase (1 dígito) = 9
+                string paddingExtra = new string('0', 9);
+
+                // Vencimiento (3 dígitos)
+                string vencimientoStr = Math.Min(item.ShelfLife, 999).ToString().PadLeft(3, '0');
+
+                // Código Imagen (4 dígitos)
+                string codImagen = "0000";
+
+                string recordLine = $"C012005{pluNum}{group}{dept}{nameToUse}{itemCodeStr}{typeStr}{valorFijo}{precioStr}{paddingVacios}{codEtiqueta}{paddingExtra}{vencimientoStr}{codImagen}";
                 infoBuilder.AppendLine(recordLine);
                 
                 onProgress?.Invoke(index, items.Count);
