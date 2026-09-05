@@ -14,7 +14,7 @@
         </div>
         <div>
             <h1 class="h4 mb-1 fw-bold text-dark">Configuración de Balanzas</h1>
-            <p class="text-muted small mb-0">Gestione la red de equipos Digi SM-300 y verifique su conectividad.</p>
+            <p class="text-muted small mb-0">Gestione la red de equipos Digi y Kretz y verifique su conectividad.</p>
         </div>
     </div>
     <div class="d-flex gap-2">
@@ -55,8 +55,18 @@
                 {
                     <tr>
                         <td class="ps-4">
-                            <div class="fw-bold text-dark">@b.IpAddress</div>
-                            <div class="xsmall text-muted">ID: #@b.Id <span class="badge bg-secondary-soft text-secondary ms-1">@b.Brand</span></div>
+                            <div class="fw-bold text-dark fs-6">@b.IpAddress</div>
+                            <div class="xsmall text-muted mt-1">
+                                ID: #@b.Id 
+                                @if (b.Brand == "KRETZ")
+                                {
+                                    <span class="badge bg-success text-white ms-1 shadow-sm" style="font-size: 0.7rem; padding: 0.25em 0.5em;">KRETZ</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-primary text-white ms-1 shadow-sm" style="font-size: 0.7rem; padding: 0.25em 0.5em;">DIGI</span>
+                                }
+                            </div>
                         </td>
                         <td class="text-center">
                             @if (_pingStatus.ContainsKey(b.Id))
