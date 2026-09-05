@@ -120,6 +120,9 @@ public class KretzService
 
             if (enviarABalanza)
             {
+                string errorMessageGeneral = "(Archivos JDG listos)";
+                bool hasErrors = false;
+
                 // Disparar DataGate Automáticamente
                 // Se asume que DataGate.exe está en la misma carpeta Jdate
                 string dataGateExe = Path.Combine(kretzFolder, "DataGate.exe");
@@ -136,36 +139,74 @@ public class KretzService
                     try
                     {
                         using var process = Process.Start(psi);
-                        // No esperamos a que termine para no bloquear, o si es rapido, await process.WaitForExitAsync();
-                        // await process.WaitForExitAsync(new TimeSpan(0, 0, 10)); // max 10 seg
+                        if (process != null)
+                        {
+                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                            try
+                            {
+                                await process.WaitForExitAsync(cts.Token);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                process.Kill();
+                                errorMessageGeneral = "Cancelado por tiempo de espera excedido (>60s).";
+                                hasErrors = true;
+                            }
+                        }
+
+                        // Leer archivo de log si existe
+                        string logJdgPath = Path.Combine(kretzFolder, "LOG.JDG");
+                        if (File.Exists(logJdgPath) && !hasErrors)
+                        {
+                            string logJdgContent = await File.ReadAllTextAsync(logJdgPath);
+                            
+                            if (logJdgContent.Contains("10")) { errorMessageGeneral = "Error 10: Checksum incorrecto recibido por equipo Kretz."; hasErrors = true; }
+                            else if (logJdgContent.Contains("11")) { errorMessageGeneral = "Error 11: Modelo de datos (cantidad incorrecta de bytes)."; hasErrors = true; }
+                            else if (logJdgContent.Contains("20")) { errorMessageGeneral = "Error 20: Registro Inexistente."; hasErrors = true; }
+                            else if (logJdgContent.Contains("50")) { errorMessageGeneral = "Error 50: Capacidad Máxima Superada (Tabla completa)."; hasErrors = true; }
+                            else if (logJdgContent.Contains("60")) { errorMessageGeneral = "Error 60: Falló la ejecución del comando en el equipo Kretz."; hasErrors = true; }
+                            else if (logJdgContent.Contains("01") || string.IsNullOrWhiteSpace(logJdgContent)) 
+                            {
+                                errorMessageGeneral = "Transmisión Exitosa confirmada (DataGate/Kretz).";
+                            }
+                            else
+                            {
+                                errorMessageGeneral = $"DataGate Log: {logJdgContent.Substring(0, Math.Min(logJdgContent.Length, 80))}";
+                                hasErrors = true;
+                            }
+
+                            try { File.Delete(logJdgPath); } catch { /* Ignorar si no se puede borrar */ }
+                        }
                     }
-                    catch { /* ignorar errores de ejecución, los archivos JDG ya se crearon */ }
+                    catch { errorMessageGeneral = "(DataGate.exe falló o no pudo iniciarse)"; hasErrors = true; }
                 }
 
                 foreach (var item in items)
                 {
                     item.LastSyncDate = DateTime.Now;
-                    item.LastSyncStatus = "Exitoso";
-                    item.LastSyncError = "(JDG Generado)";
+                    item.LastSyncStatus = hasErrors ? "Error" : "Exitoso";
+                    item.LastSyncError = errorMessageGeneral;
 
                     _db.SyncLogs.Add(new SyncLog
                     {
                         BalanzaIp = balanza.IpAddress,
                         PluCode = item.PluCode,
                         ProductName = item.Name,
-                        Status = "Exitoso",
-                        ErrorMessage = "(Archivos JDG listos para JDataGate)",
+                        Status = hasErrors ? "Error" : "Exitoso",
+                        ErrorMessage = errorMessageGeneral,
                         BatchId = batchId,
                         Date = DateTime.Now
                     });
                     
-                    await AppendToLogAsync(balanza, item);
+                    await AppendToLogAsync(balanza, item, errorMessageGeneral);
                 }
 
                 await _db.SaveChangesAsync();
+
+                if (hasErrors) return (errorMessageGeneral, infoContent);
             }
 
-            return ($"Archivos JDG generados en Carpeta Jdate y enviados a JDataGate", infoContent);
+            return ($"Archivos JDG enviados y confirmados", infoContent);
         }
         catch (Exception ex)
         {
@@ -173,7 +214,7 @@ public class KretzService
         }
     }
 
-    private async Task AppendToLogAsync(Balanza balanza, PluItem item)
+    private async Task AppendToLogAsync(Balanza balanza, PluItem item, string message)
     {
         try
         {
@@ -183,7 +224,7 @@ public class KretzService
             string fileName = $"sync_kretz_{balanza.IpAddress}_{DateTime.Now:yyyyMMdd}.log";
             string logPath = Path.Combine(logsDir, fileName);
 
-            string line = $"[{DateTime.Now:HH:mm:ss}] PLU:{item.PluCode} - {item.Name} - Exitoso - JDG Generado";
+            string line = $"[{DateTime.Now:HH:mm:ss}] PLU:{item.PluCode} - {item.Name} - {message}";
             await File.AppendAllLinesAsync(logPath, new[] { line });
         }
         catch { /* Ignorar */ }
