@@ -99,6 +99,20 @@ public class DigiService
                 barcodeFlagUnitario = funi;
             }
 
+            int globalBarcodeFormatPesable = 0;
+            var fmtPesSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "GlobalBarcodeFormatPesable");
+            if (fmtPesSetting != null && int.TryParse(fmtPesSetting.Value, out int fmpes))
+            {
+                globalBarcodeFormatPesable = fmpes;
+            }
+
+            int globalBarcodeFormatUnitario = 0;
+            var fmtUniSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "GlobalBarcodeFormatUnitario");
+            if (fmtUniSetting != null && int.TryParse(fmtUniSetting.Value, out int fmuni))
+            {
+                globalBarcodeFormatUnitario = fmuni;
+            }
+
             for (int i = 0; i < items.Count; i += batchSize)
             {
                 List<PluItem> currentBatch = items.GetRange(i, Math.Min(batchSize, items.Count - i));
@@ -130,21 +144,32 @@ public class DigiService
                     // Aseguramos formato BCD para la bandera (ej. 21 -> 0x21)
                     record[17] = Convert.ToByte(flagToUse.ToString().PadLeft(2, '0'), 16);
 
-                    // Forzamos a 5 dígitos si el artículo es Unitario (No pesable) para que la balanza lo lea correctamente 
-                    // sin desconfigurar el largo de los artículos Pesables.
-                    int currentLength = (!isPesable) ? 5 : barcodeCodeLength;
-
-                    string pluPart = item.PluCode.ToString().PadLeft(currentLength, '0');
-                    string fillerPart = isPesable ? new string('0', 12 - currentLength) : new string('1', 12 - currentLength); 
+                    string pluPart = item.PluCode.ToString().PadLeft(barcodeCodeLength, '0');
+                    string fillerPart = isPesable ? new string('0', 12 - barcodeCodeLength) : new string('1', 12 - barcodeCodeLength); 
                     string strCode = (pluPart + fillerPart).Substring(0, 12);
                     byte[] codeBcd = new byte[6];
                     for (int j = 0; j < 6; j++) codeBcd[j] = Convert.ToByte(strCode.Substring(j * 2, 2), 16);
                     Array.Copy(codeBcd, 0, record, 18, 6);
 
                     // Formato de Etiqueta (Offset 15) y Formato de Código de Barras (Offset 16)
-                    // Si el usuario configuró valores específicos, los aplicamos, si no, se usa el de TEMPLATE.DAT
                     if (item.LabelFormat > 0) record[15] = (byte)item.LabelFormat;
-                    if (item.BarcodeFormat > 0) record[16] = (byte)item.BarcodeFormat;
+                    
+                    // Lógica de Formato de Barras:
+                    // 1. Si el usuario configuró uno específico para el ítem, lo usamos.
+                    // 2. Si no, si configuró uno global para (pesable o unitario), lo usamos.
+                    // 3. Si no, queda lo que traía TEMPLATE.DAT.
+                    if (item.BarcodeFormat > 0) 
+                    {
+                        record[16] = (byte)item.BarcodeFormat;
+                    } 
+                    else 
+                    {
+                        int globalFormat = isPesable ? globalBarcodeFormatPesable : globalBarcodeFormatUnitario;
+                        if (globalFormat > 0)
+                        {
+                            record[16] = (byte)globalFormat;
+                        }
+                    }
 
                     // Offset 24: Días de Vencimiento dinámicos (Sell By - 2 bytes en BCD)
                     byte[] shelfLifeBcdArray = IntToBcdArray(Math.Min(item.ShelfLife, 9999), 2);

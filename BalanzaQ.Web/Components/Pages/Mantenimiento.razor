@@ -190,25 +190,39 @@ else
                             <input type="text" class="form-control border-0 bg-light" @bind="separatorValue" maxlength="5" placeholder="Ej: ; o , o |" />
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Cantidad de dígitos del código PLU dentro del código de barras (ej. 4 para 2+4+6, 5 para 2+5+5)">Dígitos Barras</label>
                         <div class="input-group shadow-sm rounded-3 overflow-hidden">
                             <span class="input-group-text bg-light border-0"><i class="bi bi-upc-scan text-primary"></i></span>
                             <input type="number" class="form-control border-0 bg-light" @bind="barcodeItemCodeLengthValue" min="3" max="6" />
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Prefijo del código de barras para artículos pesados (Ej. 20)">Bandera (Pes.)</label>
                         <div class="input-group shadow-sm rounded-3 overflow-hidden">
                             <span class="input-group-text bg-light border-0"><i class="bi bi-tag text-primary"></i></span>
                             <input type="number" class="form-control border-0 bg-light" @bind="barcodeFlagPesableValue" min="1" max="99" />
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Prefijo del código de barras para artículos unitarios (Ej. 21)">Bandera (Uni.)</label>
                         <div class="input-group shadow-sm rounded-3 overflow-hidden">
                             <span class="input-group-text bg-light border-0"><i class="bi bi-tag-fill text-primary"></i></span>
                             <input type="number" class="form-control border-0 bg-light" @bind="barcodeFlagUnitarioValue" min="1" max="99" />
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Formato F37 para Pesables (ej: 0=Balanza)">Fmt. (Pes.)</label>
+                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-upc text-primary"></i></span>
+                            <input type="number" class="form-control border-0 bg-light" @bind="globalBarcodeFormatPesableValue" min="0" max="99" />
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Formato F37 para Unitarios (ej: 7 para 2+4+6)">Fmt. (Uni.)</label>
+                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-upc text-primary"></i></span>
+                            <input type="number" class="form-control border-0 bg-light" @bind="globalBarcodeFormatUnitarioValue" min="0" max="99" />
                         </div>
                     </div>
                     <div class="col-12 mt-3 text-end">
@@ -364,6 +378,8 @@ else
     private int barcodeItemCodeLengthValue = 5;
     private int barcodeFlagPesableValue = 20;
     private int barcodeFlagUnitarioValue = 21;
+    private int globalBarcodeFormatPesableValue = 0;
+    private int globalBarcodeFormatUnitarioValue = 0;
     private string? configMessage;
 
     // Pruebas Hex Crudas
@@ -404,6 +420,18 @@ else
         if (flagUniSetting != null && int.TryParse(flagUniSetting.Value, out int funi))
         {
             barcodeFlagUnitarioValue = funi;
+        }
+
+        var fmtPesSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "GlobalBarcodeFormatPesable");
+        if (fmtPesSetting != null && int.TryParse(fmtPesSetting.Value, out int fmpes))
+        {
+            globalBarcodeFormatPesableValue = fmpes;
+        }
+
+        var fmtUniSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "GlobalBarcodeFormatUnitario");
+        if (fmtUniSetting != null && int.TryParse(fmtUniSetting.Value, out int fmuni))
+        {
+            globalBarcodeFormatUnitarioValue = fmuni;
         }
 
         // Cargar Branding
@@ -519,6 +547,28 @@ else
         else
         {
             flagUniSetting.Value = barcodeFlagUnitarioValue.ToString();
+        }
+
+        var fmtPesSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "GlobalBarcodeFormatPesable");
+        if (fmtPesSetting == null)
+        {
+            fmtPesSetting = new AppSetting { Key = "GlobalBarcodeFormatPesable", Value = globalBarcodeFormatPesableValue.ToString() };
+            DbContext.AppSettings.Add(fmtPesSetting);
+        }
+        else
+        {
+            fmtPesSetting.Value = globalBarcodeFormatPesableValue.ToString();
+        }
+
+        var fmtUniSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "GlobalBarcodeFormatUnitario");
+        if (fmtUniSetting == null)
+        {
+            fmtUniSetting = new AppSetting { Key = "GlobalBarcodeFormatUnitario", Value = globalBarcodeFormatUnitarioValue.ToString() };
+            DbContext.AppSettings.Add(fmtUniSetting);
+        }
+        else
+        {
+            fmtUniSetting.Value = globalBarcodeFormatUnitarioValue.ToString();
         }
         
         await DbContext.SaveChangesAsync();
