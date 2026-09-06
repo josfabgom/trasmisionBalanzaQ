@@ -64,24 +64,19 @@ public class KretzService
                 barcodeCodeLength = parsedLen;
             }
 
+            // Leer configuración global de longitud de precio Kretz (5, 6 o 7)
+            int kretzPriceDigits = 6; // Default to 6 (Report Nx LCD)
+            var priceLenSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "KretzPriceDigits");
+            if (priceLenSetting != null && int.TryParse(priceLenSetting.Value, out int parsedPriceLen))
+            {
+                kretzPriceDigits = parsedPriceLen;
+            }
+
             int index = 0;
             foreach (var item in items)
             {
                 index++;
                 
-                // Formato de registro de artículo (142 caracteres por línea)
-                // [0-3] Comando y Equipo: C01
-                // [3-4] Acción: 2
-                // [4-7] Formato/Dato extra: 005
-                // [7-13] Número de PLU: 6 dígitos
-                // [13-16] Sección/Grupo: 3 dígitos
-                // [16-19] Departamento: 3 dígitos
-                // [19-71] Nombre del Artículo: 52 caracteres (rellenados con espacios)
-                // [71-76] Código de Artículo: 5 dígitos
-                // [76-77] Tipo: P o N
-                // [77-89] Precio: 12 dígitos
-                // [89-142] Resto (Días de vencimiento, ceros extra)
-
                 string pluNum = item.PluCode.ToString().PadLeft(6, '0');
                 string group = (item.Group > 0 ? (item.Group % 1000) : 1).ToString().PadLeft(3, '0');
                 string dept = (item.Section > 0 ? (item.Section % 1000) : 1).ToString().PadLeft(3, '0');
@@ -100,13 +95,16 @@ public class KretzService
                 // 1. Valor Fijo (7 dígitos): Siempre 0
                 string valorFijo = "0000000";
 
-                // 2. Precio (7 dígitos): multiplicado por 100 y rellenado con 0 a la izquierda
+                // 2. Precio (dinámico): multiplicado por 100 y rellenado con 0 a la izquierda
                 long precioInt = (long)Math.Round(item.Price * 100);
-                string precioStr = precioInt.ToString().PadLeft(7, '0');
-                if (precioStr.Length > 7) precioStr = precioStr.Substring(precioStr.Length - 7); // Truncar max 99999.99
+                string precioStr = precioInt.ToString().PadLeft(kretzPriceDigits, '0');
+                if (precioStr.Length > kretzPriceDigits) precioStr = precioStr.Substring(precioStr.Length - kretzPriceDigits); // Truncar si excede
 
-                // Precios alternativos, impuestos y taras (36 dígitos en total)
-                string paddingVacios = new string('0', 36);
+                // 3. Precios alternativos/anteriores e impuestos/taras.
+                // Precios ocupan 'kretzPriceDigits' cada uno. Son 2 extra: Alternativo y Anterior.
+                // Impuestos y taras suman 22 ceros invariables: Imp1(6) + Imp2(6) + Tara1(5) + Tara2(5).
+                int paddingLen = (2 * kretzPriceDigits) + 22;
+                string paddingVacios = new string('0', paddingLen);
                 
                 // Código Etiqueta (2 dígitos)
                 int labelFormat = item.LabelFormat > 0 ? (item.LabelFormat % 100) : 1;

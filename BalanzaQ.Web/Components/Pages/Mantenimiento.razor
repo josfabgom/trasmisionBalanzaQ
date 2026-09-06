@@ -219,16 +219,35 @@ else
                         </div>
                     </div>
                     <div class="col-md-2">
+                    <div class="col-md-2">
                         <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Formato F37 para Unitarios (ej: 7 para 2+4+6)">Fmt. (Uni.)</label>
                         <div class="input-group shadow-sm rounded-3 overflow-hidden">
                             <span class="input-group-text bg-light border-0"><i class="bi bi-upc text-primary"></i></span>
                             <input type="number" class="form-control border-0 bg-light" @bind="globalBarcodeFormatUnitarioValue" min="0" max="99" />
                         </div>
                     </div>
-                    <div class="col-12 mt-3 text-end">
-                        <button class="btn btn-primary px-4 py-2 shadow-sm" @onclick="GuardarConfiguracion">
-                            <i class="bi bi-save me-2"></i> Guardar Configuración
-                        </button>
+                </div>
+
+                    <hr class="my-4 text-muted opacity-25" />
+
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-gear-fill me-2 text-success"></i>Configuración Especial Kretz</h6>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-6">
+                            <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Cantidad de dígitos según la familia de balanza Kretz">Longitud de Precio (Kretz)</label>
+                            <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                                <span class="input-group-text bg-light border-0"><i class="bi bi-cash-coin text-success"></i></span>
+                                <select class="form-select border-0 bg-light" @bind="kretzPriceDigitsValue">
+                                    <option value="7">Estándar (7 dígitos)</option>
+                                    <option value="6">Report Nx LCD (6 dígitos)</option>
+                                    <option value="5">Report Nx LED (5 dígitos)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-12 mt-4 text-end">
+                            <button class="btn btn-primary px-4 py-2 shadow-sm" @onclick="GuardarConfiguracion">
+                                <i class="bi bi-save me-2"></i> Guardar Configuración
+                            </button>
+                        </div>
                     </div>
                 </div>
                 @if (!string.IsNullOrEmpty(configMessage)) {
@@ -380,6 +399,7 @@ else
     private int barcodeFlagUnitarioValue = 21;
     private int globalBarcodeFormatPesableValue = 0;
     private int globalBarcodeFormatUnitarioValue = 0;
+    private int kretzPriceDigitsValue = 6;
     private string? configMessage;
 
     // Pruebas Hex Crudas
@@ -432,6 +452,12 @@ else
         if (fmtUniSetting != null && int.TryParse(fmtUniSetting.Value, out int fmuni))
         {
             globalBarcodeFormatUnitarioValue = fmuni;
+        }
+
+        var kretzPriceSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "KretzPriceDigits");
+        if (kretzPriceSetting != null && int.TryParse(kretzPriceSetting.Value, out int kp))
+        {
+            kretzPriceDigitsValue = kp;
         }
 
         // Cargar Branding
@@ -569,6 +595,17 @@ else
         else
         {
             fmtUniSetting.Value = globalBarcodeFormatUnitarioValue.ToString();
+        }
+
+        var kretzPriceSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "KretzPriceDigits");
+        if (kretzPriceSetting == null)
+        {
+            kretzPriceSetting = new AppSetting { Key = "KretzPriceDigits", Value = kretzPriceDigitsValue.ToString() };
+            DbContext.AppSettings.Add(kretzPriceSetting);
+        }
+        else
+        {
+            kretzPriceSetting.Value = kretzPriceDigitsValue.ToString();
         }
         
         await DbContext.SaveChangesAsync();
