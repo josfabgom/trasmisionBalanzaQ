@@ -214,10 +214,15 @@ public class KretzService
 
                 await _db.SaveChangesAsync();
 
-                if (hasErrors) return (errorMessageGeneral, infoContent);
+                if (hasErrors)
+                {
+                    return (errorMessageGeneral, infoContent);
+                }
+                
+                return ($"Archivos JDG enviados exitosamente a DataGate", infoContent);
             }
 
-            return ($"Archivos JDG enviados y confirmados", infoContent);
+            return ($"Archivos JDG enviados exitosamente a DataGate", infoContent);
         }
         catch (Exception ex)
         {
