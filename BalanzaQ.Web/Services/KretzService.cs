@@ -135,8 +135,13 @@ public class KretzService
                 bool hasErrors = false;
 
                 // Disparar DataGate Automáticamente
-                // Se asume que DataGate.exe está en la misma carpeta Jdate
+                // Se asume que DataGate.exe (o JDataGate.exe) está en la misma carpeta Jdate
                 string dataGateExe = Path.Combine(kretzFolder, "DataGate.exe");
+                if (!File.Exists(dataGateExe))
+                {
+                    dataGateExe = Path.Combine(kretzFolder, "JDataGate.exe");
+                }
+                
                 if (File.Exists(dataGateExe))
                 {
                     var psi = new ProcessStartInfo
