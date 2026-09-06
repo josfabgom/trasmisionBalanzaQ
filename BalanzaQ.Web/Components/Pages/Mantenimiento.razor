@@ -10,6 +10,39 @@
 
 <PageTitle>Mantenimiento de Balanzas</PageTitle>
 
+@if (!_isAuthenticated)
+{
+    <div class="container mt-5 pt-5 anim-fade-in">
+        <div class="row justify-content-center">
+            <div class="col-md-5">
+                <div class="card shadow-lg border-0 rounded-4">
+                    <div class="card-body p-5 text-center">
+                        <i class="bi bi-shield-lock-fill text-primary" style="font-size: 3.5rem;"></i>
+                        <h4 class="fw-bold mt-3 mb-4 text-dark">Acceso Restringido</h4>
+                        <p class="text-muted mb-4 small">Esta sección es exclusiva para técnicos. Ingrese la contraseña maestra para continuar.</p>
+                        <form @onsubmit="VerificarPassword">
+                            <div class="input-group mb-3 shadow-sm rounded-3 overflow-hidden">
+                                <span class="input-group-text bg-light border-0"><i class="bi bi-key-fill text-muted"></i></span>
+                                <input type="password" class="form-control border-0 bg-light" @bind="_passwordInput" placeholder="Contraseña..." autofocus />
+                            </div>
+                            @if (!string.IsNullOrEmpty(_passwordError))
+                            {
+                                <div class="alert alert-danger py-2 xsmall border-0 shadow-sm mb-3">
+                                    <i class="bi bi-exclamation-circle me-1"></i> @_passwordError
+                                </div>
+                            }
+                            <button type="submit" class="btn btn-primary w-100 py-2 shadow-sm fw-bold rounded-3">
+                                <i class="bi bi-box-arrow-in-right me-2"></i> Ingresar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
 <div class="header-premium d-flex justify-content-between align-items-center anim-fade-in shadow-sm">
     <div class="d-flex align-items-center">
         <div class="icon-box-md bg-warning-soft text-warning me-3 shadow-sm">
@@ -219,7 +252,6 @@ else
                         </div>
                     </div>
                     <div class="col-md-2">
-                    <div class="col-md-2">
                         <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Formato F37 para Unitarios (ej: 7 para 2+4+6)">Fmt. (Uni.)</label>
                         <div class="input-group shadow-sm rounded-3 overflow-hidden">
                             <span class="input-group-text bg-light border-0"><i class="bi bi-upc text-primary"></i></span>
@@ -249,7 +281,6 @@ else
                             </button>
                         </div>
                     </div>
-                </div>
                 @if (!string.IsNullOrEmpty(configMessage)) {
                     <div class="alert alert-success py-2 px-3 mt-3 mb-0 xsmall border-0 shadow-sm anim-fade-in">
                         <i class="bi bi-check-circle-fill me-2"></i> @configMessage
@@ -384,13 +415,33 @@ else
         </div>
     </div>
 </div>
+}
 
 @code {
+    // Autenticación
+    private bool _isAuthenticated = false;
+    private string _passwordInput = "";
+    private string? _passwordError;
+
     private List<Balanza>? balanzas;
     private Balanza? balanzaActual;
     private bool _isSyncing = false;
     private string? _maintenanceResult;
     private string _maintenanceClass = "alert-info";
+
+    private void VerificarPassword()
+    {
+        if (_passwordInput == "Herrera4480")
+        {
+            _isAuthenticated = true;
+            _passwordError = null;
+        }
+        else
+        {
+            _passwordError = "Contraseña incorrecta. Intente nuevamente.";
+            _passwordInput = "";
+        }
+    }
     
     // Configuración
     private string separatorValue = ";";
