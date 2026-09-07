@@ -47,8 +47,16 @@ public class KretzService
                 Directory.CreateDirectory(kretzFolder);
             }
 
+            // Leer tipo de equipo Kretz (Plantilla DataGate)
+            string kretzEquipo = "C"; // Default to C (Report Nx)
+            var equipoSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "KretzEquipmentType");
+            if (equipoSetting != null && !string.IsNullOrWhiteSpace(equipoSetting.Value))
+            {
+                kretzEquipo = equipoSetting.Value.Trim();
+            }
+
             // Generar archivo COM.JDG
-            string comContent = $"\"01\",\"C\",\"3\",\"TCP\",\"{balanza.IpAddress}\",\"1001\"";
+            string comContent = $"\"01\",\"{kretzEquipo}\",\"3\",\"TCP\",\"{balanza.IpAddress}\",\"1001\"";
             string comFilePath = Path.Combine(kretzFolder, "COM.JDG");
             await File.WriteAllTextAsync(comFilePath, comContent, Encoding.ASCII);
 
@@ -70,6 +78,14 @@ public class KretzService
             if (priceLenSetting != null && int.TryParse(priceLenSetting.Value, out int parsedPriceLen))
             {
                 kretzPriceDigits = parsedPriceLen;
+            }
+
+            // Leer configuración global de multiplicador (decimales)
+            int multiplier = 100;
+            var decSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "KretzPriceMultiplier");
+            if (decSetting != null && int.TryParse(decSetting.Value, out int parsedMult))
+            {
+                multiplier = parsedMult;
             }
 
             int index = 0;
@@ -95,8 +111,8 @@ public class KretzService
                 // 1. Valor Fijo (7 dígitos): Siempre 0
                 string valorFijo = "0000000";
 
-                // 2. Precio (dinámico): multiplicado por 100 y rellenado con 0 a la izquierda
-                long precioInt = (long)Math.Round(item.Price * 100);
+                // 2. Precio (dinámico)
+                long precioInt = (long)Math.Round(item.Price * multiplier);
                 string precioStr = precioInt.ToString().PadLeft(kretzPriceDigits, '0');
                 if (precioStr.Length > kretzPriceDigits) precioStr = precioStr.Substring(precioStr.Length - kretzPriceDigits); // Truncar si excede
 
@@ -147,10 +163,10 @@ public class KretzService
                     var psi = new ProcessStartInfo
                     {
                         FileName = dataGateExe,
-                        Arguments = "/nografico tx01", // /nografico para no abrir Java Swing, tx01 para forzar la IP/ID 01
+                        Arguments = "tx01", // Sin /nografico para que se abra la ventana visual de JDataGate
                         WorkingDirectory = kretzFolder,
-                        UseShellExecute = false,
-                        CreateNoWindow = true
+                        UseShellExecute = true,
+                        CreateNoWindow = false
                     };
                     try
                     {

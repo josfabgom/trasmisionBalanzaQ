@@ -275,6 +275,30 @@ else
                                 </select>
                             </div>
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Letra del modelo de equipo en JDataGate (Ej: C, G, F)">Plantilla / Modelo DataGate</label>
+                            <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                                <span class="input-group-text bg-light border-0"><i class="bi bi-hdd-network text-success"></i></span>
+                                <input type="text" list="kretzModels" class="form-control border-0 bg-light text-uppercase" @bind="kretzEquipmentTypeValue" maxlength="1" placeholder="Ej: C" />
+                                <datalist id="kretzModels">
+                                    <option value="C">Report NX (142 bytes - 6 dígitos)</option>
+                                    <option value="G">Aura / Report LCD (145 bytes - 7 dígitos)</option>
+                                    <option value="F">Report Estándar</option>
+                                </datalist>
+                            </div>
+                        </div>
+                        <div class="col-12 mt-2">
+                            <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Multiplicador de Precio Kretz (Ajuste de Decimales)</label>
+                            <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                                <span class="input-group-text bg-light border-0"><i class="bi bi-calculator text-success"></i></span>
+                                <select class="form-select border-0 bg-light" @bind="kretzPriceMultiplierValue">
+                                    <option value="100">x100 (2 Decimales - Hasta $9.999)</option>
+                                    <option value="10">x10 (1 Decimal - Hasta $99.999)</option>
+                                    <option value="1">x1 (Sin Decimales)</option>
+                                </select>
+                            </div>
+                            <div class="form-text xsmall">Si la balanza lee precios antiguos agregando un cero (Ej: 12399 como 123990), elige x10.</div>
+                        </div>
                         <div class="col-12 mt-4 text-end">
                             <button class="btn btn-primary px-4 py-2 shadow-sm" @onclick="GuardarConfiguracion">
                                 <i class="bi bi-save me-2"></i> Guardar Configuración
@@ -451,6 +475,8 @@ else
     private int globalBarcodeFormatPesableValue = 0;
     private int globalBarcodeFormatUnitarioValue = 0;
     private int kretzPriceDigitsValue = 6;
+    private string kretzEquipmentTypeValue = "C";
+    private int kretzPriceMultiplierValue = 100;
     private string? configMessage;
 
     // Pruebas Hex Crudas
@@ -509,6 +535,18 @@ else
         if (kretzPriceSetting != null && int.TryParse(kretzPriceSetting.Value, out int kp))
         {
             kretzPriceDigitsValue = kp;
+        }
+
+        var kretzEqSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "KretzEquipmentType");
+        if (kretzEqSetting != null && !string.IsNullOrWhiteSpace(kretzEqSetting.Value))
+        {
+            kretzEquipmentTypeValue = kretzEqSetting.Value.Trim().ToUpper();
+        }
+
+        var decSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "KretzPriceMultiplier");
+        if (decSetting != null && int.TryParse(decSetting.Value, out int parsedMult))
+        {
+            kretzPriceMultiplierValue = parsedMult;
         }
 
         // Cargar Branding
@@ -657,6 +695,28 @@ else
         else
         {
             kretzPriceSetting.Value = kretzPriceDigitsValue.ToString();
+        }
+        
+        var kretzEqSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "KretzEquipmentType");
+        if (kretzEqSetting == null)
+        {
+            kretzEqSetting = new AppSetting { Key = "KretzEquipmentType", Value = (kretzEquipmentTypeValue ?? "C").Trim().ToUpper() };
+            DbContext.AppSettings.Add(kretzEqSetting);
+        }
+        else
+        {
+            kretzEqSetting.Value = (kretzEquipmentTypeValue ?? "C").Trim().ToUpper();
+        }
+
+        var decSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "KretzPriceMultiplier");
+        if (decSetting == null)
+        {
+            decSetting = new AppSetting { Key = "KretzPriceMultiplier", Value = kretzPriceMultiplierValue.ToString() };
+            DbContext.AppSettings.Add(decSetting);
+        }
+        else
+        {
+            decSetting.Value = kretzPriceMultiplierValue.ToString();
         }
         
         await DbContext.SaveChangesAsync();
