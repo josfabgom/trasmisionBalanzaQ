@@ -116,14 +116,14 @@ public class KretzService
                 string precioStr = precioInt.ToString().PadLeft(kretzPriceDigits, '0');
                 if (precioStr.Length > kretzPriceDigits) precioStr = precioStr.Substring(precioStr.Length - kretzPriceDigits); // Truncar si excede
 
-                // NOTA: La posición 3 de la trama impuestos/taras indica el formato de decimales del precio.
+                // NOTA: La posición 1 de la trama impuestos/taras indica el formato de decimales del precio.
                 string decimalFlag = "0"; // x100 (2 decimales)
                 if (multiplier == 10) decimalFlag = "1";
                 else if (multiplier == 1) decimalFlag = "2";
 
                 int altPricesLen = 2 * kretzPriceDigits;
                 string altPrices = new string('0', altPricesLen);
-                string impuestosTaras = "00" + decimalFlag + new string('0', 19);
+                string impuestosTaras = decimalFlag + new string('0', 21);
                 string paddingVacios = altPrices + impuestosTaras;
                 
                 // Código Etiqueta (2 dígitos)
