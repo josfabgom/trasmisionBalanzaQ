@@ -119,8 +119,11 @@ public class KretzService
                 // 3. Precios alternativos/anteriores e impuestos/taras.
                 // Precios ocupan 'kretzPriceDigits' cada uno. Son 2 extra: Alternativo y Anterior.
                 // Impuestos y taras suman 22 ceros invariables: Imp1(6) + Imp2(6) + Tara1(5) + Tara2(5).
-                int paddingLen = (2 * kretzPriceDigits) + 22;
-                string paddingVacios = new string('0', paddingLen);
+                // NOTA: El cliente requiere un '1' al inicio de Impuesto 1 (pos 118 absoluto) para que la balanza lo acepte.
+                int altPricesLen = 2 * kretzPriceDigits;
+                string altPrices = new string('0', altPricesLen);
+                string impuestosTaras = "1" + new string('0', 21);
+                string paddingVacios = altPrices + impuestosTaras;
                 
                 // Código Etiqueta (2 dígitos)
                 int labelFormat = item.LabelFormat > 0 ? (item.LabelFormat % 100) : 1;
