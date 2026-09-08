@@ -156,22 +156,26 @@ public class KretzService
                 bool hasErrors = false;
 
                 // Disparar DataGate Automáticamente
-                // Se asume que DataGate.exe (o JDataGate.exe) está en la misma carpeta Jdate
-                string dataGateExe = Path.Combine(kretzFolder, "DataGate.exe");
-                if (!File.Exists(dataGateExe))
+                string dataGateExeName = "JDataGate con consola.exe";
+                if (!File.Exists(Path.Combine(kretzFolder, dataGateExeName)))
                 {
-                    dataGateExe = Path.Combine(kretzFolder, "JDataGate.exe");
+                    dataGateExeName = "JDataGate.exe";
+                    if (!File.Exists(Path.Combine(kretzFolder, dataGateExeName))) 
+                    {
+                        dataGateExeName = "DataGate.exe";
+                    }
                 }
                 
-                if (File.Exists(dataGateExe))
+                if (File.Exists(Path.Combine(kretzFolder, dataGateExeName)))
                 {
                     var psi = new ProcessStartInfo
                     {
-                        FileName = dataGateExe,
-                        Arguments = "tx01", // Sin /nografico para que se abra la ventana visual de JDataGate
+                        FileName = "cmd.exe",
+                        Arguments = $"/c start /wait \"\" \"{dataGateExeName}\" tx01",
                         WorkingDirectory = kretzFolder,
                         UseShellExecute = true,
-                        CreateNoWindow = false
+                        CreateNoWindow = false,
+                        Verb = "runas"
                     };
                     try
                     {
