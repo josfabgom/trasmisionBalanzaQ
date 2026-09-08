@@ -182,7 +182,7 @@ public class KretzService
                         using var process = Process.Start(psi);
                         if (process != null)
                         {
-                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(300));
                             try
                             {
                                 await process.WaitForExitAsync(cts.Token);
@@ -190,7 +190,7 @@ public class KretzService
                             catch (OperationCanceledException)
                             {
                                 process.Kill();
-                                errorMessageGeneral = "Cancelado por tiempo de espera excedido (>60s).";
+                                errorMessageGeneral = "Cancelado por tiempo de espera excedido (>5 min).";
                                 hasErrors = true;
                             }
                         }
