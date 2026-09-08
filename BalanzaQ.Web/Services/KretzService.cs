@@ -174,8 +174,7 @@ public class KretzService
                         Arguments = $"/c start /wait \"\" \"{dataGateExeName}\" tx01",
                         WorkingDirectory = kretzFolder,
                         UseShellExecute = true,
-                        CreateNoWindow = false,
-                        Verb = "runas"
+                        CreateNoWindow = false
                     };
                     try
                     {
