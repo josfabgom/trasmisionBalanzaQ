@@ -170,32 +170,49 @@ public class KretzService
                 {
                     var psi = new ProcessStartInfo
                     {
-                        FileName = "cmd.exe",
-                        Arguments = $"/c start /wait \"\" \"{dataGateExeName}\" tx01",
+                        FileName = dataGateExeName,
+                        Arguments = "tx01",
                         WorkingDirectory = kretzFolder,
                         UseShellExecute = true,
                         CreateNoWindow = false
                     };
                     try
                     {
+                        string logJdgPath = Path.Combine(kretzFolder, "LOG.JDG");
+                        try { File.Delete(logJdgPath); } catch { } // Limpiar log anterior
+
                         using var process = Process.Start(psi);
                         if (process != null)
                         {
                             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(300));
-                            try
+                            bool logFound = false;
+                            
+                            // Esperar a que se genere LOG.JDG o termine el proceso
+                            while (!cts.Token.IsCancellationRequested && !process.HasExited)
                             {
-                                await process.WaitForExitAsync(cts.Token);
+                                if (File.Exists(logJdgPath))
+                                {
+                                    try 
+                                    { 
+                                        string temp = await File.ReadAllTextAsync(logJdgPath); 
+                                        if (temp.Length > 0) { logFound = true; break; }
+                                    } 
+                                    catch { /* Aún bloqueado por JDataGate */ }
+                                }
+                                await Task.Delay(1000, cts.Token);
                             }
-                            catch (OperationCanceledException)
+
+                            if (cts.Token.IsCancellationRequested && !logFound)
                             {
-                                process.Kill();
                                 errorMessageGeneral = "Cancelado por tiempo de espera excedido (>5 min).";
                                 hasErrors = true;
                             }
+
+                            // Forzar cierre automático de la consola para comodidad del usuario
+                            try { if (!process.HasExited) process.Kill(true); } catch { }
                         }
 
                         // Leer archivo de log si existe
-                        string logJdgPath = Path.Combine(kretzFolder, "LOG.JDG");
                         if (File.Exists(logJdgPath) && !hasErrors)
                         {
                             string logJdgContent = await File.ReadAllTextAsync(logJdgPath);
