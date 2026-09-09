@@ -170,8 +170,8 @@ public class KretzService
                 {
                     var psi = new ProcessStartInfo
                     {
-                        FileName = dataGateExeName,
-                        Arguments = "tx01",
+                        FileName = "cmd.exe",
+                        Arguments = $"/K \"\"{dataGateExeName}\" tx01\"",
                         WorkingDirectory = kretzFolder,
                         UseShellExecute = true,
                         CreateNoWindow = false
