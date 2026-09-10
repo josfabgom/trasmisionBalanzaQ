@@ -1,0 +1,184 @@
+﻿@using BalanzaQ.Web.Services
+@inject DbImporterService ImporterService
+@inject NavigationManager NavManager
+
+<div class="card card-premium shadow-sm border-0 border-start border-warning border-4" style="border-left: 4px solid #fd7e14 !important;">
+    <div class="card-header bg-white border-0 py-3 ps-4">
+        <h6 class="fw-bold mb-0 text-dark">
+            <i class="bi bi-database-down text-warning me-2"></i> Importar Datos desde otra BD (Cliente)
+        </h6>
+    </div>
+    <div class="card-body p-4">
+        <p class="xsmall text-muted mb-4">
+            Subí un archivo <code>balanzas.db</code> de un cliente para extraer sus artículos y configuraciones sin romper la estructura actual del sistema.
+        </p>
+
+        @if (!string.IsNullOrEmpty(Message))
+        {
+            <div class="alert @AlertClass alert-dismissible fade show xsmall py-2" role="alert">
+                <i class="bi @(AlertClass == "alert-success" ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") me-2"></i> @Message
+                <button type="button" class="btn-close" style="padding: 0.75rem;" @onclick="() => Message = null"></button>
+            </div>
+        }
+
+        @if (!IsFileLoaded)
+        {
+            <div class="text-center p-4 border border-dashed rounded-4 bg-light position-relative" style="border-style: dashed !important; border-color: #ccc !important;">
+                <i class="bi bi-cloud-upload display-4 text-muted mb-3 d-block opacity-50"></i>
+                <h6 class="fw-bold text-dark">Paso 1: Seleccionar la base de datos</h6>
+                <p class="text-muted xsmall mb-3">Hacé clic en el botón de abajo para buscar el archivo .db</p>
+                
+                <div class="position-relative d-inline-block">
+                    <!-- Boton visual -->
+                    <button class="btn btn-primary px-4 py-2 shadow-sm fw-bold">
+                        <i class="bi bi-search me-2"></i> Buscar archivo...
+                    </button>
+                    <!-- Input real oculto y superpuesto -->
+                    <InputFile OnChange="LoadFiles" accept=".db" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;" />
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info border-0 shadow-sm rounded-4 xsmall d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-file-earmark-check-fill me-2 fs-6"></i> Archivo cargado: <strong>@FileName</strong>
+                </div>
+                <button class="btn btn-sm btn-outline-info" @onclick="Reset">Cambiar archivo</button>
+            </div>
+
+            @if (AvailableTables != null && AvailableTables.Any())
+            {
+                <h6 class="fw-bold mt-4 mb-3 text-dark">Paso 2: Tablas encontradas (Seleccione para importar)</h6>
+                
+                <div class="row g-2 mb-4">
+                    @foreach (var table in AvailableTables)
+                    {
+                        <div class="col-md-4">
+                            <div class="form-check form-switch p-3 border rounded-3 shadow-sm @(SelectedTables.Contains(table) ? "bg-info-soft border-info" : "bg-white")" style="transition: 0.2s;">
+                                <input class="form-check-input ms-0 me-3" type="checkbox" id="chk_@table" 
+                                       checked="@SelectedTables.Contains(table)" 
+                                       @onchange="@((e) => ToggleTable(table, e.Value))" style="cursor: pointer;" />
+                                <label class="form-check-label fw-bold xsmall text-dark" for="chk_@table" style="cursor: pointer; user-select: none;">
+                                    @table
+                                </label>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="d-flex justify-content-end border-top pt-3">
+                    <button class="btn btn-success px-4 py-2 fw-bold shadow-sm" @onclick="ImportData" disabled="@IsImporting">
+                        @if (IsImporting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>Importando...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-database-down me-2"></i> <span>Importar @SelectedTables.Count Tablas</span>
+                        }
+                    </button>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private string TempFilePath = "";
+    private string FileName = "";
+    private bool IsFileLoaded = false;
+    private bool IsImporting = false;
+    
+    private string Message = "";
+    private string AlertClass = "alert-info";
+
+    private List<string> AvailableTables = new();
+    private HashSet<string> SelectedTables = new();
+
+    // Las tablas de datos que se seleccionan por defecto
+    private readonly string[] DefaultSelected = { "PluItems", "Balanzas", "AppSettings" };
+
+    private async Task LoadFiles(InputFileChangeEventArgs e)
+    {
+        Message = "";
+        var file = e.File;
+        if (file == null) return;
+
+        FileName = file.Name;
+        if (file.Size > 50 * 1024 * 1024)
+        {
+            ShowAlert("El archivo es demasiado grande (Máximo 50MB).", false);
+            return;
+        }
+
+        try
+        {
+            TempFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".db");
+            using var stream = file.OpenReadStream(50 * 1024 * 1024);
+            using var fs = new FileStream(TempFilePath, FileMode.Create);
+            await stream.CopyToAsync(fs);
+
+            AvailableTables = await ImporterService.GetTablesAsync(TempFilePath);
+            
+            SelectedTables.Clear();
+            foreach (var t in AvailableTables)
+            {
+                if (DefaultSelected.Contains(t)) SelectedTables.Add(t);
+            }
+
+            IsFileLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Error al procesar el archivo: {ex.Message}", false);
+        }
+    }
+
+    private void ToggleTable(string table, object isChecked)
+    {
+        bool check = (bool)isChecked;
+        if (check) SelectedTables.Add(table);
+        else SelectedTables.Remove(table);
+    }
+
+    private async Task ImportData()
+    {
+        if (!SelectedTables.Any())
+        {
+            ShowAlert("Seleccione al menos una tabla para importar.", false);
+            return;
+        }
+
+        IsImporting = true;
+        Message = "";
+        StateHasChanged();
+
+        string targetDb = "balanzas.db";
+        var result = await ImporterService.ImportTablesAsync(TempFilePath, targetDb, SelectedTables.ToList());
+        IsImporting = false;
+        
+        ShowAlert(result, !result.StartsWith("Error"));
+        StateHasChanged();
+    }
+
+    private void Reset()
+    {
+        IsFileLoaded = false;
+        AvailableTables.Clear();
+        SelectedTables.Clear();
+        Message = "";
+        if (File.Exists(TempFilePath))
+        {
+            try { File.Delete(TempFilePath); } catch { }
+        }
+        TempFilePath = "";
+    }
+
+    private void ShowAlert(string msg, bool success)
+    {
+        Message = msg;
+        AlertClass = success ? "alert-success" : "alert-danger";
+    }
+}

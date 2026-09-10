@@ -1,0 +1,1 @@
+..\..\jreK\bin\java -jar DataGate.jar noexit

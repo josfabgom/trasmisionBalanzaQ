@@ -1,0 +1,5 @@
+DataGate.exe [ /noexit | /nografico ]
+
+* /noexit no cierra la consola al finalizar la transmisión de datos.
+* /nografico no ejecuta un entorno grafico (swing de java).
+* txnroequipo envia numero de equipo a las balanzas TCP.

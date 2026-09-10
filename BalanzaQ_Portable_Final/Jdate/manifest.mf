@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Main-Class: DataGate.JDataGate
+Created-By: Rodrigo Puopolo
+Class-Path:  ../Packages/RXTXcomm.jar ../Packages/jcal133.jar ../Packages/mysql515.jar ../Packages/swingx-1.0.jar ../Packages/JLibrary.jar ../Packages/xerces.jar  ../Packages/log4j128.jar

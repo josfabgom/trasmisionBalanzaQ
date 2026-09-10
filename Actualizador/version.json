@@ -1,0 +1,14 @@
+﻿{
+    "descripcion":  "Actualizacion de sistema BalanzaQ",
+    "version":  "3.6.1",
+    "fecha":  "2026-09-09",
+    "archivos_protegidos":  [
+                                "balanzas.db",
+                                "license.lic",
+                                "appsettings.json",
+                                "TEMPLATE.DAT",
+                                "version_local.json"
+                            ],
+    "zip_nombre":  "BalanzaQ_update_3.6.1.zip",
+    "checksum_sha256":  "50176947c6b04273e04e08f40c8f241e7d4b7d2ffb002c006297abe5dd6ea60a"
+}

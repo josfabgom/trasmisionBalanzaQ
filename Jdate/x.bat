@@ -1,0 +1,1 @@
+C:\jdk1.5.0_14\bin\java -jar DataGate.jar /noexit

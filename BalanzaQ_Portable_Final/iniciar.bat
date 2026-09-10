@@ -2,6 +2,9 @@
 title BalanzaQ Portable Launcher
 cd /d "%~dp0"
 
+echo Verificando actualizaciones...
+powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0ActualizadorBQ.ps1"
+
 echo Comprobando si BalanzaQ ya esta en ejecucion...
 tasklist /FI "IMAGENAME eq BalanzaQ.Web.exe" 2>NUL | find /I /N "BalanzaQ.Web.exe">NUL
 if "%ERRORLEVEL%"=="0" (

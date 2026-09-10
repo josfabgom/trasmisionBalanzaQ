@@ -16,6 +16,7 @@ try {
     builder.Services.AddScoped<DigiService>();
     builder.Services.AddScoped<KretzService>();
     builder.Services.AddScoped<ImportService>();
+    builder.Services.AddScoped<DbImporterService>();
     builder.Services.AddSingleton<BrandingService>();
     builder.Services.AddSingleton<LicenseService>();
 
@@ -105,6 +106,11 @@ try {
         });
         return Results.Ok();
     });
+
+    var lic = app.Services.GetRequiredService<LicenseService>();
+    Console.WriteLine($"[LICENSE INFO] Machine UID: {lic.GetMachineUID()}");
+    Console.WriteLine($"[LICENSE INFO] IsLicensed: {lic.IsLicensed()}");
+    Console.WriteLine($"[LICENSE INFO] ExpiryDate: {lic.ExpiryDate}");
 
     app.Run();
 

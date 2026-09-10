@@ -59,34 +59,36 @@
             </ul>
         </div>
 
-        <div class="btn-group shadow-sm rounded-pill overflow-hidden">
-            <button class="btn btn-primary px-4 fw-bold" @onclick="() => SincronizarSeleccionados(true)" disabled="@(!seleccionados.Any() || _isSyncing)">
+        <div class="d-flex shadow-sm" role="group" style="border-radius: 20px; overflow: visible;">
+            <button class="btn btn-primary fw-bold px-4" style="border-radius: 20px 0 0 20px !important; white-space: nowrap;" @onclick="() => SincronizarSeleccionados(true)" disabled="@(!seleccionados.Any() || _isSyncing)">
                 @if (_isSyncing) { <span class="spinner-border spinner-border-sm me-2"></span> }
                 else { <i class="bi bi-broadcast-pin me-2"></i> }
                 Transmitir
             </button>
-            <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" disabled="@_isSyncing">
-                <span class="visually-hidden">Opciones</span>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end shadow-premium border-0 rounded-4 py-2 mt-2">
-                <li><button class="dropdown-item py-2" @onclick="() => SincronizarSeleccionados(false)" disabled="@(!seleccionados.Any())">
-                    <i class="bi bi-file-earmark-arrow-down me-2 text-primary"></i>Generar Archivos .DAT
-                </button></li>
-                <li><hr class="dropdown-divider mx-2"></li>
-                <li><button class="dropdown-item py-2 text-danger" @onclick="SeleccionarFallidos">
-                    <i class="bi bi-exclamation-triangle me-2"></i>Seleccionar Fallidos
-                </button></li>
-                <li><button class="dropdown-item py-2 text-info" @onclick="SeleccionarNovedades">
-                    <i class="bi bi-star me-2"></i>Seleccionar Novedades
-                </button></li>
-            </ul>
+            <div class="dropdown">
+                <button type="button" class="btn btn-primary px-3" style="border-radius: 0 20px 20px 0 !important; border-left: 1px solid rgba(255,255,255,0.35);" data-bs-toggle="dropdown" aria-expanded="false" disabled="@_isSyncing">
+                    <i class="bi bi-chevron-down"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-premium border-0 rounded-4 py-2 mt-2">
+                    <li><button class="dropdown-item py-2" @onclick="() => SincronizarSeleccionados(false)" disabled="@(!seleccionados.Any())">
+                        <i class="bi bi-file-earmark-arrow-down me-2 text-primary"></i>Generar Archivos .DAT
+                    </button></li>
+                    <li><hr class="dropdown-divider mx-2"></li>
+                    <li><button class="dropdown-item py-2 text-danger" @onclick="SeleccionarFallidos">
+                        <i class="bi bi-exclamation-triangle me-2"></i>Seleccionar Fallidos
+                    </button></li>
+                    <li><button class="dropdown-item py-2 text-info" @onclick="SeleccionarNovedades">
+                        <i class="bi bi-star me-2"></i>Seleccionar Novedades
+                    </button></li>
+                </ul>
+            </div>
         </div>
 
-        <button class="btn btn-white bg-white shadow-sm rounded-circle p-2 border" @onclick="SincronizarLocal" disabled="@_isSyncing" title="Sincronizar con data.dat">
+        <button class="btn btn-outline-secondary bg-white shadow-sm p-0 border d-flex align-items-center justify-content-center" style="border-radius: 50% !important; width:38px; height:38px; flex-shrink:0;" @onclick="SincronizarLocal" disabled="@_isSyncing" title="Sincronizar con data.dat">
             <i class="bi bi-arrow-repeat fs-5 text-primary"></i>
         </button>
 
-        <button class="btn btn-success shadow-sm rounded-pill px-3 fw-bold anim-fade-in" @onclick="Crear" disabled="@_isSyncing">
+        <button class="btn btn-success fw-bold shadow-sm" style="border-radius: 20px !important; padding: 0.45rem 1.2rem; white-space: nowrap;" @onclick="Crear" disabled="@_isSyncing">
             <i class="bi bi-plus-lg me-1"></i> Nuevo Artículo
         </button>
     </div>
@@ -119,7 +121,7 @@
                     <small class="text-muted xsmall">Registro @_currentProgress de @_totalProgress procesados</small>
                 </div>
             }
-        </div>
+        </div>  
     </div>
 }
 
@@ -569,10 +571,19 @@
                 b.LastSyncDate = DateTime.Now;
                 b.LastSyncStatus = res.Message;
                 
-                if (res.Message.Contains("Exito", StringComparison.OrdinalIgnoreCase) || 
-                    res.Message.Contains("exitosos", StringComparison.OrdinalIgnoreCase) || 
-                    res.Message.Contains("generad", StringComparison.OrdinalIgnoreCase) ||
-                    res.Message.Contains("CSV", StringComparison.OrdinalIgnoreCase))
+                // Éxito real: el servicio marcó al menos un artículo como exitoso para esta balanza
+                bool balanzaExitosa = articulosSeleccionados.Any(a => 
+                    a.LastSyncStatus == "Exitoso" || a.LastSyncStatus == "Verificando");
+
+                if (!balanzaExitosa)
+                {
+                    // Fallback: el mensaje del servicio indica éxito textual
+                    balanzaExitosa = res.Message.Contains("Exito", StringComparison.OrdinalIgnoreCase) ||
+                                     res.Message.Contains("generad", StringComparison.OrdinalIgnoreCase) ||
+                                     res.Message.Contains("CSV", StringComparison.OrdinalIgnoreCase);
+                }
+
+                if (balanzaExitosa)
                 {
                     exitos++;
                     

@@ -1,0 +1,70 @@
+; 
+; NXP  Communication Device Class driver installation file
+; (C)2012 Copyright 
+;
+
+[Version] 
+Signature="$Windows NT$" 
+Class=Ports
+ClassGuid={4D36E978-E325-11CE-BFC1-08002BE10318} 
+Provider=%NXP% 
+CatalogFile=lpc-vcom.cat
+DriverVer=11/21/2014,2.0.0.0
+
+[Manufacturer] 
+%NXP%=DeviceList, NTx86, NTamd64, NTARM
+
+[DeviceList.NTx86] 
+%COMP87%=LPCVCOM,USB\VID_1FC9&PID_0087&MI_01 
+%COMP89%=LPCVCOM,USB\VID_1FC9&PID_0089&MI_01 
+%COMP83%=LPCVCOM,USB\VID_1FC9&PID_0083&MI_00
+%LINK2VCOM%=LPCVCOM,USB\VID_1FC9&PID_2002&REV_0100
+
+[DeviceList.NTamd64] 
+%COMP87%=LPCVCOM,USB\VID_1FC9&PID_0087&MI_01 
+%COMP89%=LPCVCOM,USB\VID_1FC9&PID_0089&MI_01 
+%COMP83%=LPCVCOM,USB\VID_1FC9&PID_0083&MI_00
+%LINK2VCOM%=LPCVCOM,USB\VID_1FC9&PID_2002&REV_0100
+
+[DeviceList.NTARM] 
+%COMP87%=LPCVCOM,USB\VID_1FC9&PID_0087&MI_01 
+%COMP89%=LPCVCOM,USB\VID_1FC9&PID_0089&MI_01 
+%COMP83%=LPCVCOM,USB\VID_1FC9&PID_0083&MI_00
+%LINK2VCOM%=LPCVCOM,USB\VID_1FC9&PID_2002&REV_0100
+
+;------------------------------------------------------------------------------
+;  Windows 2000/XP Sections
+;------------------------------------------------------------------------------
+[LPCVCOM]
+include=mdmcpq.inf
+CopyFiles=FakeModemCopyFileSection
+AddReg=LPCVCOM.AddReg 
+[LPCVCOM.Services]
+AddService = usbser, 0x00000002, LPCVCOM.ServiceInst
+; This adds the serial port property tab to the device properties dialog
+[LPCVCOM.AddReg]
+HKR,,DevLoader,,*ntkern
+HKR,,NTMPDriver,,usbser.sys
+HKR,,EnumPropPages32,,"MsPorts.dll,SerialPortPropPageProvider"
+
+[LPCVCOM.ServiceInst]
+DisplayName=%SERVICE%
+ServiceType = 1 ; SERVICE_KERNEL_DRIVER
+StartType = 3 ; SERVICE_DEMAND_START
+ErrorControl = 1 ; SERVICE_ERROR_NORMAL
+ServiceBinary= %12%\usbser.sys
+LoadOrderGroup = Base
+;------------------------------------------------------------------------------
+;  String Definitions
+;------------------------------------------------------------------------------
+
+[Strings] 
+NXP="NXP"
+SERVICE="LPC VCOM driver"
+COMP87="LPC USB VCom Port"
+COMP89="LPC USB VCom Port"
+COMP83="LPC USB VCom Port"
+LINK2VCOM="LPC-LinkII UCom Port" 
+
+
+

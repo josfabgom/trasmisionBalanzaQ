@@ -1,0 +1,6 @@
+2026-09-08 23:21:54,928 INFO  JDataGate - ************************* Inicializando Driver JDataGate *************************
+2026-09-08 23:21:55,664 INFO  JDataGate - *** Archivo log del driver de comunicación Kretz (Versión 2.30) ***
+2026-09-08 23:21:55,701 INFO  JDataGate - *** 08/09/2026 23:21:55 ***
+2026-09-08 23:21:55,701 INFO  JDataGate - 
+2026-09-08 23:21:55,701 INFO  JDataGate - Driver de comunicación Kretz. Versión 2.30
+2026-09-08 23:21:56,924 INFO  Comunicacion - Abriendo conexión con equipo 01 (192.168.1.80, 1001)

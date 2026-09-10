@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='iso-8859-1'?>
+<info>
+ <Configuraciones>
+   <configuracion>
+      <indiceIdioma>0</indiceIdioma>
+   </configuracion>
+ </Configuraciones>
+
+ <Equipos>
+<!-- Configuración para Balanza Kretz Report por USB (COM3) -->
+   <equipo>
+      <nroEquipo>01</nroEquipo>
+      <!-- Usa F para Report estándar, o C si es Report NX -->
+      <tpoEquipo>F</tpoEquipo>
+      <cantReintentos>3</cantReintentos>
+      <tpoComunicacion>COM</tpoComunicacion>
+      <parametro1>3</parametro1>
+   </equipo>
+ </Equipos>
+
+ <Comandos>
+<!-- Comando para actualizar Artículos -->
+   <comando>
+      <cmd>0001</cmd>
+      <eq>01</eq>
+   </comando>
+ </Comandos>
+</info>

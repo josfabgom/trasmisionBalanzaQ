@@ -1,0 +1,63 @@
+; 
+; NXP  Communication Device Class driver installation file
+; (C)2014 Copyright 
+;
+
+[Version] 
+Signature="$Windows NT$" 
+Class=HIDClass
+ClassGuid={745a17a0-74d3-11d0-b6fe-00a0c90f57da}
+Provider=%NXP% 
+CatalogFile=lpc-linkII-hid.cat
+DriverVer=11/03/2014,1.0.0.1
+
+[Manufacturer] 
+%NXP%=DeviceList, NTx86, NTamd64, NTARM
+
+[DeviceList.NTx86] 
+%CMSISDAP%=CMSIDAP_Install,USB\VID_1FC9&PID_0090&MI_00
+%LPCSIO%=LPCSIO_Install,USB\VID_1FC9&PID_0090&MI_03
+
+[DeviceList.NTamd64] 
+%CMSISDAP%=CMSIDAP_Install,USB\VID_1FC9&PID_0090&MI_00
+%LPCSIO%=LPCSIO_Install,USB\VID_1FC9&PID_0090&MI_03
+
+[DeviceList.NTARM] 
+%CMSISDAP%=CMSIDAP_Install,USB\VID_1FC9&PID_0090&MI_00
+%LPCSIO%=LPCSIO_Install,USB\VID_1FC9&PID_0090&MI_03
+
+;------------------------------------------------------------------------------
+;  Windows 2000/XP Sections
+;------------------------------------------------------------------------------
+[CMSIDAP_Install] 
+include     = input.inf
+needs       = HID_Inst.NT
+
+[CMSIDAP_Install.HW]
+include     = input.inf
+needs       = HID_Inst.NT.HW
+
+[CMSIDAP_Install.Services]
+include     = input.inf
+needs       = HID_Inst.NT.Services
+
+[LPCSIO_Install] 
+include     = input.inf
+needs       = HID_Inst.NT
+
+[LPCSIO_Install.HW]
+include     = input.inf
+needs       = HID_Inst.NT.HW
+
+[LPCSIO_Install.Services]
+include     = input.inf
+needs       = HID_Inst.NT.Services
+
+;------------------------------------------------------------------------------
+;  String Definitions
+;------------------------------------------------------------------------------
+
+[Strings] 
+NXP="NXP"
+CMSISDAP="CMSIS-DAP" 
+LPCSIO="LPC-SIO Port" 
