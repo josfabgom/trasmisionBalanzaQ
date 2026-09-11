@@ -215,54 +215,99 @@ else
                 <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-gear-fill me-2 text-primary"></i>Configuración de Importación</h6>
             </div>
             <div class="card-body p-4">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-3">
+                <!-- 1. GENERAL -->
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-file-earmark-text-fill me-2 text-secondary"></i>Configuración General</h6>
+                <div class="row g-3 align-items-end mb-4">
+                    <div class="col-md-6">
                         <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Separador (.DAT)</label>
                         <div class="input-group shadow-sm rounded-3 overflow-hidden">
-                            <span class="input-group-text bg-light border-0"><i class="bi bi-distribute-vertical text-primary"></i></span>
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-distribute-vertical text-secondary"></i></span>
                             <input type="text" class="form-control border-0 bg-light" @bind="separatorValue" maxlength="5" placeholder="Ej: ; o , o |" />
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Cantidad de dígitos del código PLU dentro del código de barras (ej. 4 para 2+4+6, 5 para 2+5+5)">Dígitos Barras</label>
-                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
-                            <span class="input-group-text bg-light border-0"><i class="bi bi-upc-scan text-primary"></i></span>
-                            <input type="number" class="form-control border-0 bg-light" @bind="barcodeItemCodeLengthValue" min="3" max="6" />
+                    <div class="col-md-6">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Entorno</label>
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" role="switch" id="simModeSwitch" @bind="simulationModeValue">
+                            <label class="form-check-label ms-2" for="simModeSwitch">
+                                <strong>Modo Simulación</strong> (Saltea ejecución de red/DataGate)
+                            </label>
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Prefijo del código de barras para artículos pesados (Ej. 20)">Bandera (Pes.)</label>
+                </div>
+
+                <hr class="my-4 text-muted opacity-25" />
+
+                <!-- 2. DIGI -->
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-upc-scan me-2 text-primary"></i>Configuración Especial DIGI</h6>
+                <div class="row g-3 align-items-end mb-3">
+                    <div class="col-12">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Cantidad de dígitos del código PLU dentro del código de barras (ej. 4 para 2+4+6, 5 para 2+5+5)">Longitud de Código PLU en Barras</label>
+                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-123 text-primary"></i></span>
+                            <select class="form-select border-0 bg-light" @bind="barcodeItemCodeLengthValue">
+                                <option value="4">4 Dígitos (Ej: Formato 2+4+6)</option>
+                                <option value="5">5 Dígitos (Ej: Formato 2+5+5)</option>
+                                <option value="6">6 Dígitos</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row g-3 align-items-end mb-2">
+                    <div class="col-12"><div class="badge bg-primary-soft text-primary w-100 text-start py-2"><i class="bi bi-box-seam me-1"></i> Artículos PESABLES (Por Peso)</div></div>
+                    <div class="col-md-4">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Bandera</label>
                         <div class="input-group shadow-sm rounded-3 overflow-hidden">
                             <span class="input-group-text bg-light border-0"><i class="bi bi-tag text-primary"></i></span>
                             <input type="number" class="form-control border-0 bg-light" @bind="barcodeFlagPesableValue" min="1" max="99" />
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Prefijo del código de barras para artículos unitarios (Ej. 21)">Bandera (Uni.)</label>
-                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
-                            <span class="input-group-text bg-light border-0"><i class="bi bi-tag-fill text-primary"></i></span>
-                            <input type="number" class="form-control border-0 bg-light" @bind="barcodeFlagUnitarioValue" min="1" max="99" />
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Formato F37 para Pesables (ej: 0=Balanza)">Fmt. (Pes.)</label>
+                    <div class="col-md-8">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Formato de Barras</label>
                         <div class="input-group shadow-sm rounded-3 overflow-hidden">
                             <span class="input-group-text bg-light border-0"><i class="bi bi-upc text-primary"></i></span>
-                            <input type="number" class="form-control border-0 bg-light" @bind="globalBarcodeFormatPesableValue" min="0" max="99" />
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Formato F37 para Unitarios (ej: 7 para 2+4+6)">Fmt. (Uni.)</label>
-                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
-                            <span class="input-group-text bg-light border-0"><i class="bi bi-upc text-primary"></i></span>
-                            <input type="number" class="form-control border-0 bg-light" @bind="globalBarcodeFormatUnitarioValue" min="0" max="99" />
+                            <select class="form-select border-0 bg-light" @bind="globalBarcodeFormatPesableValue">
+                                <option value="0">0 - Predeterminado de Balanza</option>
+                                <option value="1">1 - 2(Bandera) + 4(Código) + 6(Peso/Precio)</option>
+                                <option value="2">2 - 2(Bandera) + 5(Código) + 5(Peso/Precio)</option>
+                                <option value="7">7 - 2(Bandera) + 5(Código) + 5(Peso/Precio) [Alt]</option>
+                                <option value="8">8 - 2(Bandera) + 6(Código) + 4(Peso/Precio)</option>
+                                <option value="9">9 - Personalizado / Otro</option>
+                            </select>
                         </div>
                     </div>
                 </div>
 
-                    <hr class="my-4 text-muted opacity-25" />
+                <div class="row g-3 align-items-end mb-4">
+                    <div class="col-12"><div class="badge bg-secondary-soft text-secondary w-100 text-start py-2"><i class="bi bi-box me-1"></i> Artículos UNITARIOS (Por Unidad)</div></div>
+                    <div class="col-md-4">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Bandera</label>
+                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-tag-fill text-secondary"></i></span>
+                            <input type="number" class="form-control border-0 bg-light" @bind="barcodeFlagUnitarioValue" min="1" max="99" />
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Formato de Barras</label>
+                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-upc text-secondary"></i></span>
+                            <select class="form-select border-0 bg-light" @bind="globalBarcodeFormatUnitarioValue">
+                                <option value="0">0 - Predeterminado de Balanza</option>
+                                <option value="1">1 - 2(Bandera) + 4(Código) + 6(Importe/Cant)</option>
+                                <option value="2">2 - 2(Bandera) + 5(Código) + 5(Importe/Cant)</option>
+                                <option value="7">7 - 2(Bandera) + 5(Código) + 5(Importe/Cant) [Alt]</option>
+                                <option value="8">8 - 2(Bandera) + 6(Código) + 4(Importe/Cant)</option>
+                                <option value="9">9 - Personalizado / Otro</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
 
-                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-gear-fill me-2 text-success"></i>Configuración Especial Kretz</h6>
+                <hr class="my-4 text-muted opacity-25" />
+
+                <!-- 3. KRETZ -->
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-gear-fill me-2 text-success"></i>Configuración Especial Kretz</h6>
                     <div class="row g-3 align-items-end">
                         <div class="col-md-6">
                             <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Cantidad de dígitos según la familia de balanza Kretz">Longitud de Precio (Kretz)</label>
@@ -483,6 +528,7 @@ else
     private int kretzPriceDigitsValue = 6;
     private string kretzEquipmentTypeValue = "C";
     private int kretzPriceMultiplierValue = 100;
+    private bool simulationModeValue = false;
     private string? configMessage;
 
     // Pruebas Hex Crudas
@@ -553,6 +599,12 @@ else
         if (decSetting != null && int.TryParse(decSetting.Value, out int parsedMult))
         {
             kretzPriceMultiplierValue = parsedMult;
+        }
+
+        var simSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "SimulationMode");
+        if (simSetting != null && bool.TryParse(simSetting.Value, out bool parsedSim))
+        {
+            simulationModeValue = parsedSim;
         }
 
         // Cargar Branding
@@ -725,6 +777,17 @@ else
             decSetting.Value = kretzPriceMultiplierValue.ToString();
         }
         
+        var simSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "SimulationMode");
+        if (simSetting == null)
+        {
+            simSetting = new AppSetting { Key = "SimulationMode", Value = simulationModeValue.ToString() };
+            DbContext.AppSettings.Add(simSetting);
+        }
+        else
+        {
+            simSetting.Value = simulationModeValue.ToString();
+        }
+
         await DbContext.SaveChangesAsync();
         configMessage = "Configuración guardada correctamente.";
         StateHasChanged();

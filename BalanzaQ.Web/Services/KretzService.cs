@@ -60,6 +60,13 @@ public class KretzService
             string comFilePath = Path.Combine(kretzFolder, "COM.JDG");
             await File.WriteAllTextAsync(comFilePath, comContent, Encoding.ASCII);
 
+            bool isSim = false;
+            var simSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "SimulationMode");
+            if (simSetting != null && bool.TryParse(simSetting.Value, out bool parsedSim))
+            {
+                isSim = parsedSim;
+            }
+
             // Generar archivo INFO.JDG
             var infoBuilder = new StringBuilder();
             infoBuilder.AppendLine("C0110702012012"); // Encabezado fijo de JDataGate
@@ -94,8 +101,8 @@ public class KretzService
                 index++;
                 
                 string pluNum = item.PluCode.ToString().PadLeft(6, '0');
-                string group = (item.Group > 0 ? (item.Group % 1000) : 1).ToString().PadLeft(3, '0');
-                string dept = (item.Section > 0 ? (item.Section % 1000) : 1).ToString().PadLeft(3, '0');
+                string group = "001";
+                string dept = "001";
 
                 string nameToUse = !string.IsNullOrWhiteSpace(item.ShortName) ? item.ShortName : item.Name;
                 nameToUse = nameToUse.Replace(";", " ").Replace("\"", " ").Trim();
@@ -146,6 +153,9 @@ public class KretzService
                 onProgress?.Invoke(index, items.Count);
             }
 
+            // 4) Emitir pitido de finalización
+            infoBuilder.AppendLine("C010001");
+
             string infoContent = infoBuilder.ToString();
             string infoFilePath = Path.Combine(kretzFolder, "INFO.JDG");
             await File.WriteAllTextAsync(infoFilePath, infoContent, Encoding.ASCII);
@@ -156,86 +166,96 @@ public class KretzService
                 bool hasErrors = false;
 
                 // Disparar DataGate Automáticamente
-                string dataGateExeName = "JDataGate con consola.exe";
-                if (!File.Exists(Path.Combine(kretzFolder, dataGateExeName)))
+                if (isSim)
                 {
-                    dataGateExeName = "JDataGate.exe";
-                    if (!File.Exists(Path.Combine(kretzFolder, dataGateExeName))) 
-                    {
-                        dataGateExeName = "DataGate.exe";
-                    }
+                    await Task.Delay(1000); // Simulando red
+                    string logJdgPath = Path.Combine(kretzFolder, "LOG.JDG");
+                    await File.WriteAllTextAsync(logJdgPath, "01\n");
+                    errorMessageGeneral = "Transmisión Exitosa confirmada (Modo Simulación).";
                 }
-                
-                if (File.Exists(Path.Combine(kretzFolder, dataGateExeName)))
+                else
                 {
-                    var psi = new ProcessStartInfo
+                    string dataGateExeName = "JDataGate con consola.exe";
+                    if (!File.Exists(Path.Combine(kretzFolder, dataGateExeName)))
                     {
-                        FileName = "cmd.exe",
-                        Arguments = $"/K \"\"{dataGateExeName}\" tx01\"",
-                        WorkingDirectory = kretzFolder,
-                        UseShellExecute = true,
-                        CreateNoWindow = false
-                    };
-                    try
-                    {
-                        string logJdgPath = Path.Combine(kretzFolder, "LOG.JDG");
-                        try { File.Delete(logJdgPath); } catch { } // Limpiar log anterior
-
-                        using var process = Process.Start(psi);
-                        if (process != null)
+                        dataGateExeName = "JDataGate.exe";
+                        if (!File.Exists(Path.Combine(kretzFolder, dataGateExeName))) 
                         {
-                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(300));
-                            bool logFound = false;
-                            
-                            // Esperar a que se genere LOG.JDG o termine el proceso
-                            while (!cts.Token.IsCancellationRequested && !process.HasExited)
-                            {
-                                if (File.Exists(logJdgPath))
-                                {
-                                    try 
-                                    { 
-                                        string temp = await File.ReadAllTextAsync(logJdgPath); 
-                                        if (temp.Length > 0) { logFound = true; break; }
-                                    } 
-                                    catch { /* Aún bloqueado por JDataGate */ }
-                                }
-                                await Task.Delay(1000, cts.Token);
-                            }
-
-                            if (cts.Token.IsCancellationRequested && !logFound)
-                            {
-                                errorMessageGeneral = "Cancelado por tiempo de espera excedido (>5 min).";
-                                hasErrors = true;
-                            }
-
-                            // Forzar cierre automático de la consola para comodidad del usuario
-                            try { if (!process.HasExited) process.Kill(true); } catch { }
-                        }
-
-                        // Leer archivo de log si existe
-                        if (File.Exists(logJdgPath) && !hasErrors)
-                        {
-                            string logJdgContent = await File.ReadAllTextAsync(logJdgPath);
-                            
-                            if (logJdgContent.Contains("10")) { errorMessageGeneral = "Error 10: Checksum incorrecto recibido por equipo Kretz."; hasErrors = true; }
-                            else if (logJdgContent.Contains("11")) { errorMessageGeneral = "Error 11: Modelo de datos (cantidad incorrecta de bytes)."; hasErrors = true; }
-                            else if (logJdgContent.Contains("20")) { errorMessageGeneral = "Error 20: Registro Inexistente."; hasErrors = true; }
-                            else if (logJdgContent.Contains("50")) { errorMessageGeneral = "Error 50: Capacidad Máxima Superada (Tabla completa)."; hasErrors = true; }
-                            else if (logJdgContent.Contains("60")) { errorMessageGeneral = "Error 60: Falló la ejecución del comando en el equipo Kretz."; hasErrors = true; }
-                            else if (logJdgContent.Contains("01") || string.IsNullOrWhiteSpace(logJdgContent)) 
-                            {
-                                errorMessageGeneral = "Transmisión Exitosa confirmada (DataGate/Kretz).";
-                            }
-                            else
-                            {
-                                errorMessageGeneral = $"DataGate Log: {logJdgContent.Substring(0, Math.Min(logJdgContent.Length, 80))}";
-                                hasErrors = true;
-                            }
-
-                            try { File.Delete(logJdgPath); } catch { /* Ignorar si no se puede borrar */ }
+                            dataGateExeName = "DataGate.exe";
                         }
                     }
-                    catch { errorMessageGeneral = "(DataGate.exe falló o no pudo iniciarse)"; hasErrors = true; }
+                    
+                    if (File.Exists(Path.Combine(kretzFolder, dataGateExeName)))
+                    {
+                        var psi = new ProcessStartInfo
+                        {
+                            FileName = "cmd.exe",
+                            Arguments = $"/K \"\"{dataGateExeName}\" tx01\"",
+                            WorkingDirectory = kretzFolder,
+                            UseShellExecute = true,
+                            CreateNoWindow = false
+                        };
+                        try
+                        {
+                            string logJdgPath = Path.Combine(kretzFolder, "LOG.JDG");
+                            try { File.Delete(logJdgPath); } catch { } // Limpiar log anterior
+
+                            using var process = Process.Start(psi);
+                            if (process != null)
+                            {
+                                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(300));
+                                bool logFound = false;
+                                
+                                // Esperar a que se genere LOG.JDG o termine el proceso
+                                while (!cts.Token.IsCancellationRequested && !process.HasExited)
+                                {
+                                    if (File.Exists(logJdgPath))
+                                    {
+                                        try 
+                                        { 
+                                            string temp = await File.ReadAllTextAsync(logJdgPath); 
+                                            if (temp.Length > 0) { logFound = true; break; }
+                                        } 
+                                        catch { /* Aún bloqueado por JDataGate */ }
+                                    }
+                                    await Task.Delay(1000, cts.Token);
+                                }
+
+                                if (cts.Token.IsCancellationRequested && !logFound)
+                                {
+                                    errorMessageGeneral = "Cancelado por tiempo de espera excedido (>5 min).";
+                                    hasErrors = true;
+                                }
+
+                                // Forzar cierre automático de la consola para comodidad del usuario
+                                try { if (!process.HasExited) process.Kill(true); } catch { }
+                            }
+
+                            // Leer archivo de log si existe
+                            if (File.Exists(logJdgPath) && !hasErrors)
+                            {
+                                string logJdgContent = await File.ReadAllTextAsync(logJdgPath);
+                                
+                                if (logJdgContent.Contains("10")) { errorMessageGeneral = "Error 10: Checksum incorrecto recibido por equipo Kretz."; hasErrors = true; }
+                                else if (logJdgContent.Contains("11")) { errorMessageGeneral = "Error 11: Modelo de datos (cantidad incorrecta de bytes)."; hasErrors = true; }
+                                else if (logJdgContent.Contains("20")) { errorMessageGeneral = "Error 20: Registro Inexistente."; hasErrors = true; }
+                                else if (logJdgContent.Contains("50")) { errorMessageGeneral = "Error 50: Capacidad Máxima Superada (Tabla completa)."; hasErrors = true; }
+                                else if (logJdgContent.Contains("60")) { errorMessageGeneral = "Error 60: Falló la ejecución del comando en el equipo Kretz."; hasErrors = true; }
+                                else if (logJdgContent.Contains("01") || string.IsNullOrWhiteSpace(logJdgContent)) 
+                                {
+                                    errorMessageGeneral = "Transmisión Exitosa confirmada (DataGate/Kretz).";
+                                }
+                                else
+                                {
+                                    errorMessageGeneral = $"DataGate Log: {logJdgContent.Substring(0, Math.Min(logJdgContent.Length, 80))}";
+                                    hasErrors = true;
+                                }
+
+                                try { File.Delete(logJdgPath); } catch { /* Ignorar si no se puede borrar */ }
+                            }
+                        }
+                        catch { errorMessageGeneral = "(DataGate.exe falló o no pudo iniciarse)"; hasErrors = true; }
+                    }
                 }
 
                 foreach (var item in items)
