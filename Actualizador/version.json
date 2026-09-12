@@ -1,7 +1,7 @@
-﻿{
-    "descripcion":  "Actualizacion de sistema BalanzaQ",
-    "version":  "3.8.14",
-    "fecha":  "2026-09-10",
+{
+    "descripcion":  "Fix Kretz checksum error falso positivo, version 3.8.13",
+    "version":  "3.8.13",
+    "fecha":  "2026-09-12",
     "archivos_protegidos":  [
                                 "balanzas.db",
                                 "license.lic",
@@ -9,6 +9,6 @@
                                 "TEMPLATE.DAT",
                                 "version_local.json"
                             ],
-    "zip_nombre":  "BalanzaQ_update_3.8.14.zip",
+    "zip_nombre":  "BalanzaQ_update_3.8.13.zip",
     "checksum_sha256":  "af16c808b24344de177d273df05e023a178e68c4bca650ce14f8fb290f0fb403"
 }
