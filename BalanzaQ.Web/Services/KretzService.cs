@@ -235,13 +235,14 @@ public class KretzService
                             if (File.Exists(logJdgPath) && !hasErrors)
                             {
                                 string logJdgContent = await File.ReadAllTextAsync(logJdgPath);
+                                var tokens = logJdgContent.Split(new[] { ' ', '\r', '\n', '\t', '-', ':' }, StringSplitOptions.RemoveEmptyEntries);
                                 
-                                if (logJdgContent.Contains("10")) { errorMessageGeneral = "Error 10: Checksum incorrecto recibido por equipo Kretz."; hasErrors = true; }
-                                else if (logJdgContent.Contains("11")) { errorMessageGeneral = "Error 11: Modelo de datos (cantidad incorrecta de bytes)."; hasErrors = true; }
-                                else if (logJdgContent.Contains("20")) { errorMessageGeneral = "Error 20: Registro Inexistente."; hasErrors = true; }
-                                else if (logJdgContent.Contains("50")) { errorMessageGeneral = "Error 50: Capacidad Máxima Superada (Tabla completa)."; hasErrors = true; }
-                                else if (logJdgContent.Contains("60")) { errorMessageGeneral = "Error 60: Falló la ejecución del comando en el equipo Kretz."; hasErrors = true; }
-                                else if (logJdgContent.Contains("01") || string.IsNullOrWhiteSpace(logJdgContent)) 
+                                if (tokens.Contains("10")) { errorMessageGeneral = "Error 10: Checksum incorrecto recibido por equipo Kretz."; hasErrors = true; }
+                                else if (tokens.Contains("11")) { errorMessageGeneral = "Error 11: Modelo de datos (cantidad incorrecta de bytes)."; hasErrors = true; }
+                                else if (tokens.Contains("20")) { errorMessageGeneral = "Error 20: Registro Inexistente."; hasErrors = true; }
+                                else if (tokens.Contains("50")) { errorMessageGeneral = "Error 50: Capacidad Máxima Superada (Tabla completa)."; hasErrors = true; }
+                                else if (tokens.Contains("60")) { errorMessageGeneral = "Error 60: Falló la ejecución del comando en el equipo Kretz."; hasErrors = true; }
+                                else if (tokens.Contains("01") || string.IsNullOrWhiteSpace(logJdgContent)) 
                                 {
                                     errorMessageGeneral = "Transmisión Exitosa confirmada (DataGate/Kretz).";
                                 }
