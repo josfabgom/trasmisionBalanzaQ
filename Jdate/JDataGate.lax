@@ -47,7 +47,7 @@ lax.main.method=main
 #   -----------------
 #   the VM to use for the next launch
 
-lax.nl.current.vm=..\\..\\jreK\\bin\\java.exe
+lax.nl.current.vm=jreK\\bin\\java.exe
 
 
 #   LAX.NL.JAVA.LAUNCHER.MAIN.CLASS
