@@ -101,6 +101,13 @@ public class KretzService
             // [5] Unidades en código (1=Sí)
             string incluirUnidades = "1";
 
+            // Crear Departamento 001 y Familia 001 por defecto para evitar Error 20
+            string cmd2003 = $"C012003001{"GENERAL".PadRight(16, ' ')}";
+            infoBuilder.AppendLine(cmd2003);
+
+            string cmd2004 = $"C012004001001{"GENERAL".PadRight(16, ' ')}";
+            infoBuilder.AppendLine(cmd2004);
+
             string cmd1070 = $"C011070{inicioPesable}{incluirPeso}{inicioNoPesable}{incluirUnidades}{kretzFormatoBarras}";
             infoBuilder.AppendLine(cmd1070);
 
