@@ -67,17 +67,42 @@ public class KretzService
                 isSim = parsedSim;
             }
 
-            // Generar archivo INFO.JDG
-            var infoBuilder = new StringBuilder();
-            infoBuilder.AppendLine("C0110702012012"); // Encabezado fijo de JDataGate
-
-            // Leer configuración global de longitud de código (4 o 5)
+            // Leer configuración global de longitud de código (4, 5, 6)
             int barcodeCodeLength = 5;
             var lenSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeItemCodeLength");
             if (lenSetting != null && int.TryParse(lenSetting.Value, out int parsedLen))
             {
                 barcodeCodeLength = parsedLen;
             }
+
+            // Generar archivo INFO.JDG
+            var infoBuilder = new StringBuilder();
+
+            // Comando 1070 - Seteo de Código de Barra
+            // Formato de Kretz (1: 2-5-5, 2: 2-4-6, 3: 1-5-6, 4: 2-6-4)
+            string kretzFormatoBarras = "1"; // Default 2-5-5
+            if (barcodeCodeLength == 4) kretzFormatoBarras = "2";
+            else if (barcodeCodeLength == 6) kretzFormatoBarras = "4";
+
+            int flagPesable = 20;
+            var pesSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeFlagPesable");
+            if (pesSetting != null && int.TryParse(pesSetting.Value, out int pFlag)) flagPesable = pFlag;
+
+            int flagNoPesable = 20; // O 21, según su DB
+            var noPesSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeFlagUnitario");
+            if (noPesSetting != null && int.TryParse(noPesSetting.Value, out int npFlag)) flagNoPesable = npFlag;
+
+            // [0-2] Numero Inicio Pesable
+            string inicioPesable = flagPesable.ToString().PadLeft(2, '0');
+            // [2] Peso en código (1=Peso, 0=Importe) -> Dejamos Peso(1) o si quieren Importe(0)
+            string incluirPeso = "1";
+            // [3-5] Numero Inicio No Pesable
+            string inicioNoPesable = flagNoPesable.ToString().PadLeft(2, '0');
+            // [5] Unidades en código (1=Sí)
+            string incluirUnidades = "1";
+
+            string cmd1070 = $"C011070{inicioPesable}{incluirPeso}{inicioNoPesable}{incluirUnidades}{kretzFormatoBarras}";
+            infoBuilder.AppendLine(cmd1070);
 
             // Leer configuración global de longitud de precio Kretz (5, 6 o 7)
             int kretzPriceDigits = 6; // Default to 6 (Report Nx LCD)
@@ -93,6 +118,14 @@ public class KretzService
             if (decSetting != null && int.TryParse(decSetting.Value, out int parsedMult))
             {
                 multiplier = parsedMult;
+            }
+
+            // Leer Etiqueta Default Kretz
+            int kretzDefaultLabel = 1;
+            var kretzLblSetting = await _db.AppSettings.FirstOrDefaultAsync(s => s.Key == "KretzDefaultLabel");
+            if (kretzLblSetting != null && int.TryParse(kretzLblSetting.Value, out int kLbl))
+            {
+                kretzDefaultLabel = kLbl;
             }
 
             int index = 0;
@@ -135,7 +168,7 @@ public class KretzService
                 string paddingVacios = altPrices + impuestosTaras;
                 
                 // Código Etiqueta (2 dígitos)
-                int labelFormat = item.LabelFormat > 0 ? (item.LabelFormat % 100) : 1;
+                int labelFormat = item.LabelFormat > 0 ? (item.LabelFormat % 100) : kretzDefaultLabel;
                 string codEtiqueta = labelFormat.ToString().PadLeft(2, '0');
 
                 // Receta y Nutricional (8 dígitos) + Fecha envase (1 dígito) = 9
@@ -242,14 +275,15 @@ public class KretzService
                                 else if (tokens.Contains("20")) { errorMessageGeneral = "Error 20: Registro Inexistente."; hasErrors = true; }
                                 else if (tokens.Contains("50")) { errorMessageGeneral = "Error 50: Capacidad Máxima Superada (Tabla completa)."; hasErrors = true; }
                                 else if (tokens.Contains("60")) { errorMessageGeneral = "Error 60: Falló la ejecución del comando en el equipo Kretz."; hasErrors = true; }
-                                else if (tokens.Contains("01") || string.IsNullOrWhiteSpace(logJdgContent)) 
+                                else if (logJdgContent.Contains("Error", StringComparison.OrdinalIgnoreCase) || logJdgContent.Contains("No se pudo conectar", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    errorMessageGeneral = $"DataGate Error: {logJdgContent.Substring(0, Math.Min(logJdgContent.Length, 80))}";
+                                    hasErrors = true;
+                                }
+                                else 
                                 {
                                     errorMessageGeneral = "Transmisión Exitosa confirmada (DataGate/Kretz).";
-                                }
-                                else
-                                {
-                                    errorMessageGeneral = $"DataGate Log: {logJdgContent.Substring(0, Math.Min(logJdgContent.Length, 80))}";
-                                    hasErrors = true;
+                                    hasErrors = false;
                                 }
 
                                 try { File.Delete(logJdgPath); } catch { /* Ignorar si no se puede borrar */ }

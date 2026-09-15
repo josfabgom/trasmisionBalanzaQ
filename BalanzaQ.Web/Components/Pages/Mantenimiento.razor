@@ -218,20 +218,38 @@ else
                 <!-- 1. GENERAL -->
                 <h6 class="fw-bold text-dark mb-3"><i class="bi bi-file-earmark-text-fill me-2 text-secondary"></i>Configuración General</h6>
                 <div class="row g-3 align-items-end mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Separador (.DAT)</label>
+                    <div class="col-md-2">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Separador</label>
                         <div class="input-group shadow-sm rounded-3 overflow-hidden">
                             <span class="input-group-text bg-light border-0"><i class="bi bi-distribute-vertical text-secondary"></i></span>
-                            <input type="text" class="form-control border-0 bg-light" @bind="separatorValue" maxlength="5" placeholder="Ej: ; o , o |" />
+                            <input type="text" class="form-control border-0 bg-light" @bind="separatorValue" maxlength="5" placeholder="Ej: ; o ," />
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-2">
                         <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2">Entorno</label>
                         <div class="form-check form-switch mt-2">
                             <input class="form-check-input" type="checkbox" role="switch" id="simModeSwitch" @bind="simulationModeValue">
                             <label class="form-check-label ms-2" for="simModeSwitch">
-                                <strong>Modo Simulación</strong> (Saltea ejecución de red/DataGate)
+                                <strong>Simulación</strong>
                             </label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Cantidad de dígitos del código PLU dentro del código de barras.">Longitud PLU en Barras</label>
+                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-123 text-primary"></i></span>
+                            <select class="form-select border-0 bg-light" @bind="barcodeItemCodeLengthValue">
+                                <option value="4">4 Dígitos</option>
+                                <option value="5">5 Dígitos</option>
+                                <option value="6">6 Dígitos</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Formato de etiqueta por defecto para Kretz.">Etiqueta Default Kretz</label>
+                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-tag text-info"></i></span>
+                            <input type="number" class="form-control border-0 bg-light" @bind="kretzDefaultLabelValue" min="1" max="99" />
                         </div>
                     </div>
                 </div>
@@ -240,19 +258,6 @@ else
 
                 <!-- 2. DIGI -->
                 <h6 class="fw-bold text-dark mb-3"><i class="bi bi-upc-scan me-2 text-primary"></i>Configuración Especial DIGI</h6>
-                <div class="row g-3 align-items-end mb-3">
-                    <div class="col-12">
-                        <label class="form-label xsmall text-uppercase fw-bold text-muted mb-2" title="Cantidad de dígitos del código PLU dentro del código de barras (ej. 4 para 2+4+6, 5 para 2+5+5)">Longitud de Código PLU en Barras</label>
-                        <div class="input-group shadow-sm rounded-3 overflow-hidden">
-                            <span class="input-group-text bg-light border-0"><i class="bi bi-123 text-primary"></i></span>
-                            <select class="form-select border-0 bg-light" @bind="barcodeItemCodeLengthValue">
-                                <option value="4">4 Dígitos (Ej: Formato 2+4+6)</option>
-                                <option value="5">5 Dígitos (Ej: Formato 2+5+5)</option>
-                                <option value="6">6 Dígitos</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
                 
                 <div class="row g-3 align-items-end mb-2">
                     <div class="col-12"><div class="badge bg-primary-soft text-primary w-100 text-start py-2"><i class="bi bi-box-seam me-1"></i> Artículos PESABLES (Por Peso)</div></div>
@@ -521,6 +526,7 @@ else
     // Configuración
     private string separatorValue = ";";
     private int barcodeItemCodeLengthValue = 5;
+    private int kretzDefaultLabelValue = 1;
     private int barcodeFlagPesableValue = 20;
     private int barcodeFlagUnitarioValue = 21;
     private int globalBarcodeFormatPesableValue = 0;
@@ -557,6 +563,12 @@ else
         if (barcodeLenSetting != null && int.TryParse(barcodeLenSetting.Value, out int len))
         {
             barcodeItemCodeLengthValue = len;
+        }
+
+        var kretzLblSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "KretzDefaultLabel");
+        if (kretzLblSetting != null && int.TryParse(kretzLblSetting.Value, out int kLbl))
+        {
+            kretzDefaultLabelValue = kLbl;
         }
 
         var flagPesSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeFlagPesable");
@@ -698,6 +710,17 @@ else
         else
         {
             barcodeLenSetting.Value = barcodeItemCodeLengthValue.ToString();
+        }
+
+        var kretzLblSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "KretzDefaultLabel");
+        if (kretzLblSetting == null)
+        {
+            kretzLblSetting = new AppSetting { Key = "KretzDefaultLabel", Value = kretzDefaultLabelValue.ToString() };
+            DbContext.AppSettings.Add(kretzLblSetting);
+        }
+        else
+        {
+            kretzLblSetting.Value = kretzDefaultLabelValue.ToString();
         }
 
         var flagPesSetting = await DbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == "BarcodeFlagPesable");

@@ -198,10 +198,10 @@
                                     <i class="bi bi-hourglass-split me-1"></i> Validando
                                 </span>
                             }
-                            else if (p.LastSyncStatus == "Fallo")
+                            else if (p.LastSyncStatus == "Error")
                             {
                                 <span class="badge bg-danger-soft text-danger rounded-pill px-3 py-1" title="@p.LastSyncError">
-                                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Fallo
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Error
                                 </span>
                             }
                             else
@@ -543,6 +543,8 @@
             _currentProgress = 0;
             int balanzaIndex = 0;
             string batchId = Guid.NewGuid().ToString().Substring(0, 8).ToUpper();
+            
+            List<string> scaleResponses = new();
 
             foreach (var b in balanzas)
             {
@@ -583,6 +585,11 @@
                                      res.Message.Contains("CSV", StringComparison.OrdinalIgnoreCase);
                 }
 
+                if (enviarABalanza)
+                {
+                    scaleResponses.Add($"{b.IpAddress}: {(balanzaExitosa ? "OK" : "ERROR")} - {res.Message}");
+                }
+
                 if (balanzaExitosa)
                 {
                     exitos++;
@@ -610,7 +617,18 @@
 
             if (enviarABalanza)
             {
-                Mensaje = (exitos > 0) ? $"Transmisión completada. Se enviaron artículos a {exitos} balanza(s)." : "Error en el proceso de envío.";
+                if (exitos == balanzas.Count)
+                {
+                    Mensaje = $"Transmisión completada. Se enviaron artículos a {exitos} balanza(s). Respuestas: {string.Join(" | ", scaleResponses)}";
+                }
+                else if (exitos > 0)
+                {
+                    Mensaje = $"Transmisión parcial. Éxito en {exitos} balanza(s). Respuestas: {string.Join(" | ", scaleResponses)}";
+                }
+                else
+                {
+                    Mensaje = $"Error en el proceso de envío. Respuestas: {string.Join(" | ", scaleResponses)}";
+                }
             }
             else
             {
