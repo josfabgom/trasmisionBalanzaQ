@@ -1,0 +1,7 @@
+-----Error en transmisión----
+*** Archivo log del driver de comunicación Kretz (Versión 2.30) ***
+*** 15/09/2026 21:04:50 ***
+
+# No se pudo conectar al equipo 192.168.0.15 [Verifique que esté encendido y conectado a la red]
+
+
